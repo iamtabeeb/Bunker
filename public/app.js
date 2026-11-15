@@ -16,13 +16,18 @@ const ack=r=>{if(r&&r.err)fail(r.err);else{err='';ST.set('bk_c',r.code)}};
 const askAdult=f=>{pend=f;render()};
 const create=m=>{if(!nm.trim())return fail('Avval ismingizni yozing');const go=ok=>socket.emit('join',{create:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
 const join=(c,ok)=>{if(!nm.trim())return fail('Avval ismingizni yozing');if(c.length<5)return fail('Xona kodini kiriting');socket.emit('join',{code:c,adultOk:ok,pid:uid,name:nm,avatar:av0},r=>{if(r&&r.adult)askAdult(()=>join(c,true));else ack(r)})};
+let rl=[];
+const rlV=()=>rl.length?rl.map(r=>h('div',{class:'row',style:'justify-content:space-between;padding:6px 0;border-top:1px solid var(--bd)'},h('span',{},(r.mode==='adult'?'🔞 ':'')+(r.host||'Xona')+' · '+r.n+' / 20'),h('button',{class:'g',onclick:()=>join(r.code)},'Kirish'))):[h('div',{class:'mu'},'Hozircha ochiq xona yo‘q')];
+const loadRooms=()=>socket.emit('rooms',null,r=>{rl=(r&&r.list)||[];const x=$('#rl');if(x)x.replaceChildren(...rlV())});
+setInterval(()=>{if(!room)loadRooms()},5000);
+const quick=m=>{if(!nm.trim())return fail('Avval ismingizni yozing');const go=ok=>socket.emit('join',{quick:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
 const start=()=>{err='';em('start')},rev=k=>em('reveal',k),adv=()=>em('skip');
-const leave=()=>{S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render()};
+const leave=()=>{S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
 const bye=()=>{socket.emit('leave');leave()};
 socket.on('state',s=>{S=s;skew=s.srv-Date.now();room=s;room.phaseEnd=s.end?s.end-skew:0;pl=Object.fromEntries(s.players.map(p=>[p.id,p]));hand=s.hand;ch=s.chat;code=s.code;render()});
 socket.on('gone',leave);
-socket.on('connect',()=>{const c=ST.get('bk_c');if(c)socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0,re:1},r=>{if(r&&r.err)leave()})});
-setInterval(()=>{if(!room)return;const l=room.phaseEnd?Math.max(0,Math.ceil((room.phaseEnd-Date.now())/1000)):0;$('#tm').textContent=PH[room.phase]?PH[room.phase]+(l?' · '+l+' s':''):''},1000);
+socket.on('connect',()=>{loadRooms();const c=ST.get('bk_c');if(c)socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0,re:1},r=>{if(r&&r.err)leave()})});
+setInterval(()=>{if(!room)return;const l=room.phaseEnd?Math.max(0,Math.ceil((room.phaseEnd-Date.now())/1000)):0;$('#tm').textContent=room.phase==='lobby'&&room.auto?'Boshlanishiga '+Math.max(0,Math.ceil((room.auto-Date.now()-skew)/1000))+' s':PH[room.phase]?PH[room.phase]+(l?' · '+l+' s':''):''},1000);
 const gateV=()=>h('div',{class:'c'},h('h2',{style:'margin:0 0 6px'},'🔞 18+ ogohlantirish'),h('p',{},'Bu o‘yinda qorong‘i va kattalar uchun mavzular bor: kasalliklar, jinoyat, jinsiy mavzular, fobiyalar. Faqat 18 yoshdan oshganlar uchun.'),h('button',{onclick:()=>{ST.set('bk_18','1');ok18=1;render()}},'Men 18 yoshdaman'));
 function homeV(){
  const ci=h('input',{placeholder:'Xona kodi',maxlength:5,style:'text-transform:uppercase'});
@@ -30,6 +35,7 @@ function homeV(){
   h('div',{class:'c'},h('b',{},'Ismingiz va avatar'),
    h('input',{value:nm,maxlength:14,placeholder:'Ism',style:'margin-top:6px',oninput:e=>{nm=e.target.value;ST.set('bk_n',nm)}}),
    h('div',{class:'row',style:'margin-top:8px'},AV.map(a=>h('span',{class:'av'+(a===av0?' sel':''),onclick:()=>{av0=a;ST.set('bk_a',a);render()}},a)))),
+  h('div',{class:'c'},h('b',{},'⚡ Tezkor o‘yin'),h('div',{class:'row',style:'margin:6px 0'},h('button',{onclick:()=>quick('normal')},'Oddiy'),h('button',{class:'g',onclick:()=>quick('adult')},'🔞 18+')),h('div',{class:'mu',style:'margin-top:8px'},'Ochiq xonalar'),h('div',{id:'rl'},rlV())),
   h('div',{class:'c'},h('div',{class:'row'},h('button',{onclick:()=>create('normal')},'Oddiy xona yaratish'),h('button',{class:'g',onclick:()=>create('adult')},'🔞 18+ xona yaratish')),
    h('div',{class:'row',style:'margin-top:10px'},ci,h('button',{class:'g',onclick:()=>join(ci.value.trim().toUpperCase()),disabled:!db},'Kirish'))),
   err&&h('div',{class:'c',style:'color:var(--rd)'},err));
@@ -50,6 +56,7 @@ function lobby(){
    h('div',{style:'margin-top:6px'},room.mode==='adult'?'🔞 18+ rejim: kasalliklar, jinsiy mavzular va fobiyalar kartalari ishlatiladi.':'Oddiy rejim: 18+ kartalarsiz.')),
   h('div',{class:'c'},h('b',{},'Vaqt va sozlamalar'),
    h('div',{class:'row',style:'margin-top:6px'},num('Bunker joylari',room.pk,v=>R().update({pk:v})),num('Karta ochish (s)',room.ts[0],v=>sett(0,v)),num('Muhokama (s)',room.ts[1],v=>sett(1,v)),num('Ovoz berish (s)',room.ts[2],v=>sett(2,v))),
+   isHost()&&h('label',{class:'mu',style:'display:block;margin-top:8px'},h('input',{type:'checkbox',checked:room.pub,onchange:e=>R().update({pub:e.target.checked})}),' Ochiq xona (tezkor o‘yinda ko‘rinadi, 6 kishi to‘lsa o‘zi boshlanadi)'),
    isHost()&&h('label',{class:'mu',style:'display:block;margin-top:8px'},h('input',{type:'checkbox',checked:m&&m.p,onchange:e=>PL(uid).update({p:e.target.checked,al:e.target.checked})}),' Men ham o‘ynayman')),
   h('details',{class:'c',open:true},h('summary',{},h('b',{},'Qoidalar')),h('ol',{style:'padding-left:18px;margin:6px 0'},RULES.map(x=>h('li',{},x)))),
   h('div',{class:'c'},h('div',{class:'mu',style:'margin-bottom:8px'},`Tayyor: ${rd} / ${n}`),
