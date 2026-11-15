@@ -6,9 +6,9 @@ const al=r=>Object.keys(r.pl).filter(i=>r.pl[i].al),nc=p=>Object.keys(p.cards).l
 const can=(r,id)=>{const p=r.pl[id];return !!p&&p.al&&p.p&&(r.phase==='reveal'?nc(p)<r.round:r.phase==='tie'&&r.cand.includes(id)&&p.tx!==r.round&&nc(p)<6)};
 const ghost=(r,id)=>r.phase!=='lobby'&&r.phase!=='end'&&!(r.pl[id]&&r.pl[id].al);
 
-const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
+const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,mode:r.mode,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
  hand:m&&m.p&&r.phase!=='lobby'?m.hand:null,
- players:Object.entries(r.pl).map(([i,p])=>({id:i,n:p.n,a:p.a,p:p.p,al:p.al,cards:p.cards,vt:p.vt})),
+ players:Object.entries(r.pl).map(([i,p])=>({id:i,n:p.n,a:p.a,p:p.p,al:p.al,cards:p.cards,vt:p.vt,rd:p.rd})),
  chat:r.chat.filter(x=>x.c==='main'||ghost(r,id))}};
 const push=r=>{r.t=now();for(const i in r.pl){const p=r.pl[i];if(p.sid)io.to(p.sid).emit('state',view(r,i))}};
 const go=(r,ph,sec,x)=>Object.assign(r,{phase:ph,end:sec?now()+sec*1000:0},x);
@@ -23,7 +23,7 @@ const start=r=>{
  if(N<3)return 'Kamida 3 o‘yinchi kerak';
  if(K<1||K>=N)return 'Bunker joylari o‘yinchilar sonidan kam bo‘lishi kerak';
  const E=N-K,Rn=Math.min(6,E),b=Math.floor(E/Rn),x=E%Rn,pools={};
- C.CATS.forEach(([c])=>pools[c]=shuf(C.P[c]));
+ C.CATS.forEach(([c])=>pools[c]=shuf(C.P[c].filter(x=>r.mode==='adult'||!C.ADULT.includes(x))));
  ids.forEach((i,n)=>{const p=r.pl[i];p.cards={};p.vt=null;p.hand={};C.CATS.forEach(([c])=>p.hand[c]=pools[c][n%pools[c].length])});
  go(r,'reveal',r.ts[0],{plan:Array.from({length:Rn},(_,i)=>b+(i<x?1:0)),sc:C.pick(C.SC),bk:C.mkB(),round:1,out:[],cand:null,need:null,tb:0});
 };
@@ -60,12 +60,14 @@ io.on('connection',s=>{
   const pid=String(d.pid||'').slice(0,12);if(!pid)return cb({err:'Xatolik'});
   let q;
   if(d.create){
+   if(d.mode==='adult'&&!d.adultOk)return cb({err:'18+ xona uchun yosh va rozilikni tasdiqlang'});
    if(Object.keys(rooms).length>2000)return cb({err:'Serverda joy qolmadi, birozdan keyin urinib ko‘ring'});
    let c;do c=Array.from({length:5},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[C.rnd(0,31)]).join('');while(rooms[c]);
-   q=rooms[c]={code:c,host:pid,pk:3,ts:[30,120,45],phase:'lobby',round:0,plan:null,sc:null,bk:null,out:[],cand:null,need:null,tb:0,end:0,pl:{},chat:[],t:now()};
+   q=rooms[c]={code:c,host:pid,mode:d.mode==='adult'?'adult':'normal',pk:3,ts:[30,120,45],phase:'lobby',round:0,plan:null,sc:null,bk:null,out:[],cand:null,need:null,tb:0,end:0,pl:{},chat:[],t:now()};
   }else{
    q=rooms[String(d.code||'').toUpperCase()];
    if(!q)return cb({err:'Xona topilmadi'});
+   if(q.mode==='adult'&&!d.adultOk&&!(d.re&&q.pl[pid]))return cb({err:'Bu 18+ xona',adult:true});
   }
   let p=q.pl[pid];
   if(!p){
@@ -84,6 +86,7 @@ io.on('connection',s=>{
   push(r);
  });
  E('start',(d,cb)=>{if(!r||r.host!==id||r.phase!=='lobby')return;const e=start(r);if(e)return cb({err:e});push(r)});
+ E('ready',d=>{if(!r||r.phase!=='lobby'||!r.pl[id])return;r.pl[id].rd=!!d;push(r)});
  E('reveal',d=>{if(!r||!r.pl[id])return;reveal(r,id,d);push(r)});
  E('vote',d=>{
   if(!r||r.phase!=='vote')return;
@@ -119,3 +122,4 @@ setInterval(()=>{
 },1000);
 
 srv.listen(process.env.PORT||3000,()=>console.log('BUNKER server ishga tushdi'));
+
