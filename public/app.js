@@ -5,7 +5,7 @@ const sv={},ST={get(k){try{return localStorage.getItem(k)}catch(e){return sv[k]}
 const CATS=[["kasb","Kasb"],["gen","Genetika"],["sog","Sog‘liq"],["bag","Bagaj"],["xar","Xarakter"],["fob","Fobiya"]],LB=Object.fromEntries(CATS);
 const AV=["😎","🧔","👩","🧓","👨‍⚕️","🥷","🧙","🤠","👷","🕵️","🧑‍🚀","🦊"];
 const PH={reveal:'Karta ochish',discuss:'Muhokama',vote:'Ovoz berish',tie:'Teng ovoz',result:'Natija',end:'Yakun'};
-let db=1,code,room=null,pl={},ch=[],tab='main',hand=null,err='',S=null,skew=0,pend=null,view='room',ag=null,elim=0,elimSeen=false,nm=ST.get('bk_n')||'',av0=ST.get('bk_a')||'😎';
+let db=1,code,room=null,pl={},ch=[],tab='main',hand=null,err='',S=null,skew=0,pend=null,view='room',ag=null,elim=0,elimSeen=false,inv=null,note='',pv=null,plist=[],bo=3,nm=ST.get('bk_n')||'',av0=ST.get('bk_a')||'😎';
 let uid=ST.get('bk_uid');if(!uid){uid=Math.random().toString(36).slice(2,10);ST.set('bk_uid',uid)}
 const socket=io();
 const mp=()=>pl[uid],alive=()=>Object.keys(pl).filter(i=>pl[i].al),playing=()=>Object.keys(pl).filter(i=>pl[i].p),isHost=()=>room&&room.host===uid,nc=p=>Object.keys(p.cards||{}).length;
@@ -22,7 +22,7 @@ const loadRooms=()=>socket.emit('rooms',null,r=>{rl=(r&&r.list)||[];const x=$('#
 setInterval(()=>{if(!room)loadRooms()},5000);
 const quick=m=>{if(!nm.trim())return fail('Avval ismingizni yozing');const go=ok=>socket.emit('join',{quick:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
 const start=()=>{err='';em('start')},rev=k=>em('reveal',k),adv=()=>em('skip');
-const leave=()=>{view='room';ag=null;elim=0;elimSeen=false;S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
+const leave=()=>{view='room';ag=null;inv=null;note='';pv=null;elim=0;elimSeen=false;S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
 const bye=()=>{socket.emit('leave');leave()};
 socket.on('state',s=>{S=s;skew=s.srv-Date.now();room=s;room.phaseEnd=s.end?s.end-skew:0;pl=Object.fromEntries(s.players.map(p=>[p.id,p]));hand=s.hand;ch=s.chat;code=s.code;chkElim();render()});
 socket.on('gone',leave);
@@ -63,22 +63,47 @@ function lobby(){
    m&&m.p&&h('button',{class:m.rd?'g':'',style:'margin-right:8px',onclick:()=>em('ready',!m.rd)},m.rd?'Tayyor emasman':'Tayyorman'),
    isHost()?h('button',{onclick:start},'O‘yinni boshlash'):h('span',{class:'mu'},'Xona egasi boshlashini kuting...')));
 }
-socket.on('arc:game',g=>{ag=g;render()});
+socket.on('arc:game',g=>{ag=g;if(g){note='';err=''}render()});
 function chkElim(){const m=mp();if(!room||room.phase==='lobby'){elimSeen=false;return}if(m&&m.p&&!m.al&&room.phase!=='end'&&!elimSeen){elimSeen=true;elim=1}}
 const elimV=()=>h('div',{class:'c'},h('b',{},'Siz o‘yindan chiqdingiz!'),h('div',{style:'margin:6px 0'},'Mini-o‘yinlarga o‘tasizmi?'),h('button',{onclick:()=>{elim=0;view='arcade';em('arc:enter');render()}},'Mini-o‘yinlarga o‘tish'),' ',h('button',{class:'g',onclick:()=>{elim=0;render()}},'Xonada qolish'));
+socket.on('arc:inv',v=>{inv=v;render()});
+socket.on('arc:invr',v=>{note=v.st==='declined'?v.n+' taklifni rad etdi':v.st==='expired'?'Taklif muddati tugadi':v.n+' o‘yindan chiqdi';if(inv&&(v.st==='expired'&&v.id===inv.id))inv=null;render()});
+const loadP=()=>socket.emit('arc:list',null,r=>{plist=(r&&r.list)||[];render()});
+setInterval(()=>{if(view==='arcade'&&pv&&!ag)loadP()},4000);
+const sendInv=(to,type)=>socket.emit('arc:invite',{to,type,bo},r=>{if(r&&r.err)fail(r.err);else{err='';note='Taklif yuborildi, javob kutilmoqda...';render()}});
+const GN={ttt:'X va O',rps:'Tosh-Qaychi-Qog‘oz'};
+const gcard=(type,title,desc)=>h('div',{class:'c'},h('b',{},title),h('div',{class:'mu',style:'margin:4px 0 8px'},desc),
+ type==='rps'&&h('div',{class:'row',style:'margin-bottom:8px'},h('span',{class:'mu'},'Raundlar:'),[3,5].map(n=>h('button',{class:bo===n?'':'g',onclick:()=>{bo=n;render()}},String(n)))),
+ h('div',{class:'mu'},'Bot bilan:'),
+ h('div',{class:'row',style:'margin:6px 0'},['easy','normal','hard'].map(l=>h('button',{class:'g',onclick:()=>{err='';em('arc:bot',{type,level:l,bo})}},{easy:'Easy',normal:'Normal',hard:'Hard'}[l]))),
+ h('button',{onclick:()=>{pv=pv===type?null:type;if(pv)loadP();else render()}},'👥 Do‘st bilan'),
+ pv===type&&h('div',{style:'margin-top:8px'},plist.length?plist.map(p=>h('div',{class:'row',style:'justify-content:space-between;padding:6px 0;border-top:1px solid var(--bd)'},h('span',{},p.a+' '+p.n),h('button',{class:'g',onclick:()=>sendInv(p.id,type)},'Taklif yuborish'))):h('div',{class:'mu'},'Hozir arkadada boshqa o‘yinchi yo‘q')));
 function arcV(){
  const back=()=>{view='room';em('arc:back');render()};
  return h('div',{},
   h('div',{class:'c'},h('button',{onclick:back},'↩ Asosiy xonaga qaytish'),h('div',{class:'mu',style:'margin-top:6px'},room.phase==='end'?'Asosiy o‘yin yakunlandi.':'Asosiy o‘yin davom etmoqda: '+(PH[room.phase]||''))),
   room.phase==='end'&&h('div',{class:'c'},h('b',{},'Asosiy o‘yin yakunlandi!'),h('div',{style:'margin-top:8px'},h('button',{onclick:back},'Natijalarni ko‘rish'),' ',h('button',{class:'g',onclick:back},'Xonaga qaytish'))),
-  ag?gameV():h('div',{class:'c'},h('b',{},'❌⭕ X va O'),h('div',{class:'mu',style:'margin:4px 0 8px'},'3×3 maydon. Bir qatorga uchta belgi qo‘ysangiz yutasiz.'),h('div',{class:'mu'},'Bot bilan o‘ynash:'),h('div',{class:'row',style:'margin-top:6px'},['easy','normal','hard'].map(l=>h('button',{class:'g',onclick:()=>em('arc:bot',{level:l})},{easy:'Easy',normal:'Normal',hard:'Hard'}[l])))));
+  inv&&h('div',{class:'c'},h('b',{},inv.from+' sizni '+GN[inv.type]+' o‘ynashga taklif qilmoqda'),h('div',{style:'margin-top:8px'},h('button',{onclick:()=>{socket.emit('arc:reply',{id:inv.id,ok:true});inv=null;render()}},'Qabul qilish'),' ',h('button',{class:'g',onclick:()=>{socket.emit('arc:reply',{id:inv.id,ok:false});inv=null;render()}},'Rad etish'))),
+  note&&h('div',{class:'c',onclick:()=>{note='';render()}},note),
+  err&&h('div',{class:'c',style:'color:var(--rd)'},err),
+  ag?gameV():[gcard('ttt','❌⭕ X va O','3×3 maydon. Bir qatorga uchta belgi qo‘ysangiz yutasiz.'),gcard('rps','🪨✂️📄 Tosh-Qaychi-Qog‘oz','Tosh qaychini, qaychi qog‘ozni, qog‘oz toshni yutadi.')]);
 }
-function gameV(){
+function rpsV(){
+ const g=ag,N={r:'🪨 Tosh',s:'✂️ Qaychi',p:'📄 Qog‘oz'},l=g.last;
+ const st=g.over?(g.over==='d'?'Durang!':g.over==='you'?'Siz yutdingiz! 🎉':g.vs+' yutdi'):(g.picked?'Raqib tanlovini kutyapsiz...':'Tanlang');
+ return h('div',{class:'c'},h('b',{},'Tosh-Qaychi-Qog‘oz · '+g.vs+(g.level==='-'?'':' ('+g.level+')')),
+  h('div',{class:'mu',style:'margin:4px 0'},`${g.bo} raundli · Raund ${g.rd}/${g.bo} · Hisob: siz ${g.sc[0]} - ${g.sc[1]} ${g.vs}`),
+  l&&h('div',{style:'margin:6px 0'},`Oxirgi raund: siz ${N[l.you]}, ${g.vs} ${N[l.opp]} → ${l.w==='d'?'durang':l.w==='you'?'siz yutdingiz':g.vs+' yutdi'}`),
+  h('div',{style:'margin:6px 0'},st),
+  !g.over&&h('div',{class:'row'},['r','s','p'].map(c=>h('button',{class:'g',disabled:g.picked,onclick:()=>em('arc:pick',{c})},N[c]))),
+  h('div',{style:'margin-top:10px'},g.over&&g.level!=='-'&&h('button',{onclick:()=>{em('arc:quit');em('arc:bot',{type:'rps',level:g.level,bo:g.bo})}},'Qayta o‘ynash'),' ',h('button',{class:'g',onclick:()=>em('arc:quit')},'Chiqish')));
+}
+function gameV(){if(ag.type==='rps')return rpsV();
  const g=ag,mine=g.turn===g.you&&!g.over;
  const st=g.over?(g.over==='d'?'Durang!':g.over===g.you?'Siz yutdingiz! 🎉':g.vs+' yutdi'):(mine?'Sizning yurishingiz ('+g.you+')':g.vs+' o‘ylayapti...');
- return h('div',{class:'c'},h('b',{},'X va O · '+g.vs+' ('+g.level+')'),h('div',{style:'margin:6px 0'},st),
+ return h('div',{class:'c'},h('b',{},'X va O · '+g.vs+(g.level==='-'?'':' ('+g.level+')')),h('div',{style:'margin:6px 0'},st),
   h('div',{style:'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:260px'},g.board.map((c,i)=>h('button',{class:'g',style:'height:70px;font-size:30px',disabled:!mine||!!c,onclick:()=>em('arc:move',{cell:i})},c||''))),
-  h('div',{style:'margin-top:10px'},g.over&&h('button',{onclick:()=>{em('arc:quit');em('arc:bot',{level:g.level})}},'Qayta o‘ynash'),' ',h('button',{class:'g',onclick:()=>em('arc:quit')},'Chiqish')));
+  h('div',{style:'margin-top:10px'},g.over&&g.level!=='-'&&h('button',{onclick:()=>{em('arc:quit');em('arc:bot',{type:'ttt',level:g.level})}},'Qayta o‘ynash'),' ',h('button',{class:'g',onclick:()=>em('arc:quit')},'Chiqish')));
 }
 function info(){
  const b=room.bk;
@@ -135,4 +160,5 @@ function renderChat(){
 function send(){const i=$('#ci'),x=i.value.trim();if(!x||!room)return;i.value='';em('chat',{c:tab,x})}
 $('#cs').onclick=send;$('#ci').onkeydown=e=>{if(e.key==='Enter')send()};
 render();
+
 
