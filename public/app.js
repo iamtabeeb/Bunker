@@ -5,7 +5,7 @@ const sv={},ST={get(k){try{return localStorage.getItem(k)}catch(e){return sv[k]}
 const CATS=[["kasb","Kasb"],["gen","Genetika"],["sog","Sog‘liq"],["bag","Bagaj"],["xar","Xarakter"],["fob","Fobiya"]],LB=Object.fromEntries(CATS);
 const AV=["😎","🧔","👩","🧓","👨‍⚕️","🥷","🧙","🤠","👷","🕵️","🧑‍🚀","🦊"];
 const PH={reveal:'Karta ochish',discuss:'Muhokama',vote:'Ovoz berish',tie:'Teng ovoz',result:'Natija',end:'Yakun'};
-let db=1,code,room=null,pl={},ch=[],tab='main',hand=null,err='',S=null,skew=0,pend=null,nm=ST.get('bk_n')||'',av0=ST.get('bk_a')||'😎';
+let db=1,code,room=null,pl={},ch=[],tab='main',hand=null,err='',S=null,skew=0,pend=null,view='room',ag=null,elim=0,elimSeen=false,nm=ST.get('bk_n')||'',av0=ST.get('bk_a')||'😎';
 let uid=ST.get('bk_uid');if(!uid){uid=Math.random().toString(36).slice(2,10);ST.set('bk_uid',uid)}
 const socket=io();
 const mp=()=>pl[uid],alive=()=>Object.keys(pl).filter(i=>pl[i].al),playing=()=>Object.keys(pl).filter(i=>pl[i].p),isHost=()=>room&&room.host===uid,nc=p=>Object.keys(p.cards||{}).length;
@@ -22,9 +22,9 @@ const loadRooms=()=>socket.emit('rooms',null,r=>{rl=(r&&r.list)||[];const x=$('#
 setInterval(()=>{if(!room)loadRooms()},5000);
 const quick=m=>{if(!nm.trim())return fail('Avval ismingizni yozing');const go=ok=>socket.emit('join',{quick:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
 const start=()=>{err='';em('start')},rev=k=>em('reveal',k),adv=()=>em('skip');
-const leave=()=>{S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
+const leave=()=>{view='room';ag=null;elim=0;elimSeen=false;S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
 const bye=()=>{socket.emit('leave');leave()};
-socket.on('state',s=>{S=s;skew=s.srv-Date.now();room=s;room.phaseEnd=s.end?s.end-skew:0;pl=Object.fromEntries(s.players.map(p=>[p.id,p]));hand=s.hand;ch=s.chat;code=s.code;render()});
+socket.on('state',s=>{S=s;skew=s.srv-Date.now();room=s;room.phaseEnd=s.end?s.end-skew:0;pl=Object.fromEntries(s.players.map(p=>[p.id,p]));hand=s.hand;ch=s.chat;code=s.code;chkElim();render()});
 socket.on('gone',leave);
 socket.on('connect',()=>{loadRooms();const c=ST.get('bk_c');if(c)socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0,re:1},r=>{if(r&&r.err)leave()})});
 setInterval(()=>{if(!room)return;const l=room.phaseEnd?Math.max(0,Math.ceil((room.phaseEnd-Date.now())/1000)):0;$('#tm').textContent=room.phase==='lobby'&&room.auto?'Boshlanishiga '+Math.max(0,Math.ceil((room.auto-Date.now()-skew)/1000))+' s':PH[room.phase]?PH[room.phase]+(l?' · '+l+' s':''):''},1000);
@@ -63,6 +63,23 @@ function lobby(){
    m&&m.p&&h('button',{class:m.rd?'g':'',style:'margin-right:8px',onclick:()=>em('ready',!m.rd)},m.rd?'Tayyor emasman':'Tayyorman'),
    isHost()?h('button',{onclick:start},'O‘yinni boshlash'):h('span',{class:'mu'},'Xona egasi boshlashini kuting...')));
 }
+socket.on('arc:game',g=>{ag=g;render()});
+function chkElim(){const m=mp();if(!room||room.phase==='lobby'){elimSeen=false;return}if(m&&m.p&&!m.al&&room.phase!=='end'&&!elimSeen){elimSeen=true;elim=1}}
+const elimV=()=>h('div',{class:'c'},h('b',{},'Siz o‘yindan chiqdingiz!'),h('div',{style:'margin:6px 0'},'Mini-o‘yinlarga o‘tasizmi?'),h('button',{onclick:()=>{elim=0;view='arcade';em('arc:enter');render()}},'Mini-o‘yinlarga o‘tish'),' ',h('button',{class:'g',onclick:()=>{elim=0;render()}},'Xonada qolish'));
+function arcV(){
+ const back=()=>{view='room';em('arc:back');render()};
+ return h('div',{},
+  h('div',{class:'c'},h('button',{onclick:back},'↩ Asosiy xonaga qaytish'),h('div',{class:'mu',style:'margin-top:6px'},room.phase==='end'?'Asosiy o‘yin yakunlandi.':'Asosiy o‘yin davom etmoqda: '+(PH[room.phase]||''))),
+  room.phase==='end'&&h('div',{class:'c'},h('b',{},'Asosiy o‘yin yakunlandi!'),h('div',{style:'margin-top:8px'},h('button',{onclick:back},'Natijalarni ko‘rish'),' ',h('button',{class:'g',onclick:back},'Xonaga qaytish'))),
+  ag?gameV():h('div',{class:'c'},h('b',{},'❌⭕ X va O'),h('div',{class:'mu',style:'margin:4px 0 8px'},'3×3 maydon. Bir qatorga uchta belgi qo‘ysangiz yutasiz.'),h('div',{class:'mu'},'Bot bilan o‘ynash:'),h('div',{class:'row',style:'margin-top:6px'},['easy','normal','hard'].map(l=>h('button',{class:'g',onclick:()=>em('arc:bot',{level:l})},{easy:'Easy',normal:'Normal',hard:'Hard'}[l])))));
+}
+function gameV(){
+ const g=ag,mine=g.turn===g.you&&!g.over;
+ const st=g.over?(g.over==='d'?'Durang!':g.over===g.you?'Siz yutdingiz! 🎉':g.vs+' yutdi'):(mine?'Sizning yurishingiz ('+g.you+')':g.vs+' o‘ylayapti...');
+ return h('div',{class:'c'},h('b',{},'X va O · '+g.vs+' ('+g.level+')'),h('div',{style:'margin:6px 0'},st),
+  h('div',{style:'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:260px'},g.board.map((c,i)=>h('button',{class:'g',style:'height:70px;font-size:30px',disabled:!mine||!!c,onclick:()=>em('arc:move',{cell:i})},c||''))),
+  h('div',{style:'margin-top:10px'},g.over&&h('button',{onclick:()=>{em('arc:quit');em('arc:bot',{level:g.level})}},'Qayta o‘ynash'),' ',h('button',{class:'g',onclick:()=>em('arc:quit')},'Chiqish')));
+}
 function info(){
  const b=room.bk;
  return h('div',{class:'c'},h('b',{},'Apokalipsis: '+room.sc+(room.mode==='adult'?' · 🔞 18+':'')),
@@ -89,6 +106,8 @@ function handV(){
 function roomV(){
  const m=mp(),ph=room.phase,v=h('div');
  if(err)v.append(h('div',{class:'c',style:'color:var(--rd)'},err));
+ if(elim)v.append(elimV());
+ if(m&&m.p&&!m.al&&ph!=='lobby'&&ph!=='end'&&!elim)v.append(h('button',{style:'margin-bottom:10px',onclick:()=>{view='arcade';em('arc:enter');render()}},'🎮 Bunker Arcade'));
  v.append(ph==='lobby'?lobby():info());
  if(ph==='tie')v.append(h('div',{class:'c'},'⚖️ Ovozlar teng: '+room.cand.map(i=>pl[i].a+' '+pl[i].n).join(', ')+'. Ular yana bittadan karta ochadi, keyin qayta ovoz beriladi.'));
  if(ph==='result')v.append(h('div',{class:'c'},h('b',{},'Bunkerdan chiqarildi: '+(room.out.length?room.out.map(i=>pl[i].a+' '+pl[i].n).join(', '):'hech kim'))));
@@ -99,7 +118,7 @@ function roomV(){
  return v;
 }
 function render(){
- $('#scr').replaceChildren(pend?adultV():!room?homeV():roomV());
+ $('#scr').replaceChildren(pend?adultV():!room?homeV():view==='arcade'?arcV():roomV());
  $('#chat').hidden=!room;renderChat();
 }
 function renderChat(){
@@ -116,3 +135,4 @@ function renderChat(){
 function send(){const i=$('#ci'),x=i.value.trim();if(!x||!room)return;i.value='';em('chat',{c:tab,x})}
 $('#cs').onclick=send;$('#ci').onkeydown=e=>{if(e.key==='Enter')send()};
 render();
+
