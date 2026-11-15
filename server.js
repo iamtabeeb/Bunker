@@ -6,13 +6,15 @@ const al=r=>Object.keys(r.pl).filter(i=>r.pl[i].al),nc=p=>Object.keys(p.cards).l
 const can=(r,id)=>{const p=r.pl[id];return !!p&&p.al&&p.p&&(r.phase==='reveal'?nc(p)<r.round:r.phase==='tie'&&r.cand.includes(id)&&p.tx!==r.round&&nc(p)<6)};
 const ghost=(r,id)=>r.phase!=='lobby'&&r.phase!=='end'&&!(r.pl[id]&&r.pl[id].al);
 
-const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,mode:r.mode,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
+const where={};
+const open=m=>Object.values(rooms).filter(r=>r.pub&&r.phase==='lobby'&&Object.keys(r.pl).length<20&&(!m||r.mode===m));
+const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,mode:r.mode,pub:r.pub,auto:r.auto,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
  hand:m&&m.p&&r.phase!=='lobby'?m.hand:null,
  players:Object.entries(r.pl).map(([i,p])=>({id:i,n:p.n,a:p.a,p:p.p,al:p.al,cards:p.cards,vt:p.vt,rd:p.rd})),
  chat:r.chat.filter(x=>x.c==='main'||ghost(r,id))}};
 const push=r=>{r.t=now();for(const i in r.pl){const p=r.pl[i];if(p.sid)io.to(p.sid).emit('state',view(r,i))}};
 const go=(r,ph,sec,x)=>Object.assign(r,{phase:ph,end:sec?now()+sec*1000:0},x);
-const drop=(q,id)=>{delete q.pl[id];if(q.host===id){const n=Object.keys(q.pl)[0];if(n)q.host=n}if(!Object.keys(q.pl).length)delete rooms[q.code];else push(q)};
+const drop=(q,id)=>{delete where[id];delete q.pl[id];if(q.host===id){const n=Object.keys(q.pl)[0];if(n)q.host=n}if(!Object.keys(q.pl).length)delete rooms[q.code];else push(q)};
 
 const reveal=(r,id,c)=>{const p=r.pl[id];if(!can(r,id)||!p.hand[c]||p.cards[c])return;p.cards[c]=p.hand[c];if(r.phase==='tie')p.tx=r.round};
 const auto=(r,id)=>{const p=r.pl[id],k=C.CATS.map(x=>x[0]).filter(x=>!p.cards[x]);if(k.length)reveal(r,id,C.pick(k))};
@@ -58,17 +60,20 @@ io.on('connection',s=>{
  const E=(ev,f)=>s.on(ev,(d,cb)=>{cb=typeof cb==='function'?cb:()=>{};try{f(d==null?{}:d,cb)}catch(e){cb({err:'Xatolik'})}});
  E('join',(d,cb)=>{
   const pid=String(d.pid||'').slice(0,12);if(!pid)return cb({err:'Xatolik'});
+  const old=where[pid],oq=old&&rooms[old]&&rooms[old].pl[pid]?rooms[old]:null,mode=d.mode==='adult'?'adult':'normal';
+  if(oq&&oq.phase!=='lobby'&&!d.re&&String(d.code||'').toUpperCase()!==oq.code)return cb({err:'Siz boshqa xonada o‘ynayapsiz. Avval undan chiqing.'});
   let q;
-  if(d.create){
-   if(d.mode==='adult'&&!d.adultOk)return cb({err:'18+ xona uchun yosh va rozilikni tasdiqlang'});
+  if(d.create||(d.quick&&!open(mode).length)){
+   if(mode==='adult'&&!d.adultOk)return cb({err:'18+ xona uchun yosh va rozilikni tasdiqlang'});
    if(Object.keys(rooms).length>2000)return cb({err:'Serverda joy qolmadi, birozdan keyin urinib ko‘ring'});
    let c;do c=Array.from({length:5},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[C.rnd(0,31)]).join('');while(rooms[c]);
-   q=rooms[c]={code:c,host:pid,mode:d.mode==='adult'?'adult':'normal',pk:3,ts:[30,120,45],phase:'lobby',round:0,plan:null,sc:null,bk:null,out:[],cand:null,need:null,tb:0,end:0,pl:{},chat:[],t:now()};
+   q=rooms[c]={code:c,host:pid,mode,pub:!!d.quick,pkm:false,auto:0,pk:3,ts:[30,120,45],phase:'lobby',round:0,plan:null,sc:null,bk:null,out:[],cand:null,need:null,tb:0,end:0,pl:{},chat:[],t:now()};
   }else{
-   q=rooms[String(d.code||'').toUpperCase()];
+   q=d.quick?open(mode).sort((a,b)=>Object.keys(b.pl).length-Object.keys(a.pl).length)[0]:rooms[String(d.code||'').toUpperCase()];
    if(!q)return cb({err:'Xona topilmadi'});
    if(q.mode==='adult'&&!d.adultOk&&!(d.re&&q.pl[pid]))return cb({err:'Bu 18+ xona',adult:true});
   }
+  if(oq&&oq!==q&&oq.phase==='lobby')drop(oq,pid);
   let p=q.pl[pid];
   if(!p){
    if(q.phase!=='lobby')return cb({err:'O‘yin allaqachon boshlangan'});
@@ -76,11 +81,12 @@ io.on('connection',s=>{
    p=q.pl[pid]={n:'',a:'😎',p:true,al:true,cards:{},hand:{},vt:null,sid:null};
   }
   if(!d.re||!p.n){p.n=String(d.name||'Mehmon').trim().slice(0,14)||'Mehmon';p.a=String(d.avatar||'😎').slice(0,8)}
-  r=q;id=pid;p.sid=s.id;cb({code:q.code});push(q);
+  r=q;id=pid;where[pid]=q.code;p.sid=s.id;cb({code:q.code});push(q);
  });
  E('set',d=>{
   if(!r||r.phase!=='lobby'||r.host!==id)return;
-  if(d.pk)r.pk=Math.max(1,Math.min(19,d.pk|0));
+  if(d.pk){r.pk=Math.max(1,Math.min(19,d.pk|0));r.pkm=true}
+  if('pub' in d){r.pub=!!d.pub;if(!r.pub)r.auto=0}
   if(Array.isArray(d.ts))r.ts=d.ts.slice(0,3).map(x=>Math.max(5,Math.min(600,x|0||30)));
   if('play' in d){const p=r.pl[id];p.p=!!d.play;p.al=!!d.play}
   push(r);
@@ -101,9 +107,10 @@ io.on('connection',s=>{
   if(!x||(d.c==='ghost'?!g:g))return;
   r.chat.push({c:g?'ghost':'main',n:p.n,a:p.a,x,t:now()});if(r.chat.length>100)r.chat.shift();push(r);
  });
+ E('rooms',(d,cb)=>cb({list:open().map(r=>({code:r.code,mode:r.mode,host:(r.pl[r.host]||{}).n||'',n:Object.keys(r.pl).length}))}));
  E('leave',()=>{
   if(!r)return;const q=r;r=null;s.emit('gone');
-  if(q.phase==='lobby')drop(q,id);else if(q.pl[id])q.pl[id].sid=null;
+  if(q.phase==='lobby')drop(q,id);else{delete where[id];if(q.pl[id])q.pl[id].sid=null}
  });
  s.on('disconnect',()=>{
   if(!r||!r.pl[id])return;const q=r,pid=id;q.pl[pid].sid=null;
@@ -115,6 +122,12 @@ setInterval(()=>{
  for(const c in rooms){
   const r=rooms[c];
   if(now()-r.t>3*3600e3&&!Object.values(r.pl).some(p=>p.sid)){delete rooms[c];continue}
+  if(r.pub&&r.phase==='lobby'){
+   const n=Object.values(r.pl).filter(p=>p.p).length;
+   if(n>=6&&!r.auto){r.auto=now()+30000;push(r)}
+   else if(n<6&&r.auto){r.auto=0;push(r)}
+   else if(r.auto&&now()>=r.auto){if(!r.pkm||r.pk>=n)r.pk=Math.max(1,n>>1);r.auto=0;start(r);push(r)}
+  }
   if(r.end&&now()>=r.end)adv(r);
   else if(r.phase==='reveal'&&!Object.keys(r.pl).some(i=>can(r,i)))adv(r);
   else if(r.phase==='tie'&&!r.cand.some(i=>can(r,i)))adv(r);
