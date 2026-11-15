@@ -10,7 +10,7 @@ const where={};
 const open=m=>Object.values(rooms).filter(r=>r.pub&&r.phase==='lobby'&&Object.keys(r.pl).length<20&&(!m||r.mode===m));
 const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,mode:r.mode,pub:r.pub,auto:r.auto,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
  hand:m&&m.p&&r.phase!=='lobby'?m.hand:null,
- players:Object.entries(r.pl).map(([i,p])=>({id:i,n:p.n,a:p.a,p:p.p,al:p.al,cards:p.cards,vt:p.vt,rd:p.rd})),
+ players:Object.entries(r.pl).map(([i,p])=>({id:i,n:p.n,a:p.a,p:p.p,al:p.al,cards:p.cards,vt:p.vt,rd:p.rd,arc:p.arc})),
  chat:r.chat.filter(x=>x.c==='main'||ghost(r,id))}};
 const push=r=>{r.t=now();for(const i in r.pl){const p=r.pl[i];if(p.sid)io.to(p.sid).emit('state',view(r,i))}};
 const go=(r,ph,sec,x)=>Object.assign(r,{phase:ph,end:sec?now()+sec*1000:0},x);
@@ -55,9 +55,11 @@ const adv=r=>{
  push(r);
 };
 
+const ARC=require('./arcade')(io,rooms,push);
 io.on('connection',s=>{
  let r=null,id=null;
  const E=(ev,f)=>s.on(ev,(d,cb)=>{cb=typeof cb==='function'?cb:()=>{};try{f(d==null?{}:d,cb)}catch(e){cb({err:'Xatolik'})}});
+ ARC.attach(s,E,()=>({r,id}));
  E('join',(d,cb)=>{
   const pid=String(d.pid||'').slice(0,12);if(!pid)return cb({err:'Xatolik'});
   const old=where[pid],oq=old&&rooms[old]&&rooms[old].pl[pid]?rooms[old]:null,mode=d.mode==='adult'?'adult':'normal';
@@ -81,7 +83,7 @@ io.on('connection',s=>{
    p=q.pl[pid]={n:'',a:'😎',p:true,al:true,cards:{},hand:{},vt:null,sid:null};
   }
   if(!d.re||!p.n){p.n=String(d.name||'Mehmon').trim().slice(0,14)||'Mehmon';p.a=String(d.avatar||'😎').slice(0,8)}
-  r=q;id=pid;where[pid]=q.code;p.sid=s.id;cb({code:q.code});push(q);
+  r=q;id=pid;where[pid]=q.code;p.sid=s.id;cb({code:q.code});push(q);ARC.resend(pid,s);
  });
  E('set',d=>{
   if(!r||r.phase!=='lobby'||r.host!==id)return;
