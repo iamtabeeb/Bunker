@@ -11,3 +11,5 @@ fob:["Klaustrofobiya — tor joydan qo‘rqish.","Araxnofobiya — o‘rgimchakd
 const GJ=["generator","suv filtri","kutubxona","tibbiy xona","issiqxona","radio xona","ombor","ustaxona","quyosh batareyalari"];
 const mkB=()=>({m2:rnd(60,400),oy:rnd(3,36),yil:rnd(1,10),jh:[...GJ].sort(()=>Math.random()-.5).slice(0,3)});
 module.exports={SC,CATS,P,mkB,pick,rnd};
+module.exports.ADULT=["Pornografik film rejissyori 🎬","Jinsiy terapevt 🌶️","Strip-klub menejeri 💃","OIV infeksiyasi","Sifilis","Genital gerpes","Erotrofobiya — jinsiy mavzular yoki jinsiy munosabat haqida gapirishdan qo‘rqish.","Koitofobiya — jinsiy aloqadan qo‘rqish.","Gimnofobiya — yalang‘ochlikdan qo‘rqish.","Jinsiy ojizlikdan qo‘rqish."];
+
