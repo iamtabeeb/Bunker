@@ -7,6 +7,16 @@ const can=(r,id)=>{const p=r.pl[id];return !!p&&p.al&&p.p&&(r.phase==='reveal'?n
 const ghost=(r,id)=>r.phase!=='lobby'&&r.phase!=='end'&&!(r.pl[id]&&r.pl[id].al);
 
 const where={};
+const voices=new Map(),VMAX=500*1024;
+const vevict=id=>{const v=voices.get(id);if(v){v.m.gone=true;voices.delete(id)}};
+const vtrim=r=>{const mine=[...voices].filter(([,v])=>v.room===r.code);while(mine.length>15)vevict(mine.shift()[0]);let tot=0;for(const[,v]of voices)tot+=v.b.length;for(const[id]of voices){if(tot<=120e6)break;tot-=voices.get(id).b.length;vevict(id)}};
+app.get('/v/:id',(q,res)=>{
+ const v=voices.get(q.params.id);if(!v)return res.sendStatus(404);
+ const b=v.b,m=/bytes=(\d*)-(\d*)/.exec(q.headers.range||'');let a=0,e=b.length-1;
+ if(m){a=m[1]?+m[1]:0;e=m[2]?Math.min(+m[2],b.length-1):e;if(a>e)return res.sendStatus(416);res.status(206).set('Content-Range','bytes '+a+'-'+e+'/'+b.length)}
+ res.set({'Content-Type':'audio/wav','Accept-Ranges':'bytes','Content-Length':e-a+1,'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff'});
+ res.end(b.subarray(a,e+1));
+});
 const open=m=>Object.values(rooms).filter(r=>r.pub&&r.phase==='lobby'&&Object.keys(r.pl).length<20&&(!m||r.mode===m));
 const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,mode:r.mode,pub:r.pub,auto:r.auto,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
  hand:m&&m.p&&r.phase!=='lobby'?m.hand:null,
@@ -57,7 +67,7 @@ const adv=r=>{
 
 const ARC=require('./arcade')(io,rooms,push);
 io.on('connection',s=>{
- let r=null,id=null;
+ let r=null,id=null,lv=0;
  const E=(ev,f)=>s.on(ev,(d,cb)=>{cb=typeof cb==='function'?cb:()=>{};try{f(d==null?{}:d,cb)}catch(e){cb({err:'Xatolik'})}});
  ARC.attach(s,E,()=>({r,id}));
  E('join',(d,cb)=>{
@@ -110,6 +120,18 @@ io.on('connection',s=>{
   r.chat.push({c:g?'ghost':'main',n:p.n,a:p.a,x,t:now()});if(r.chat.length>100)r.chat.shift();push(r);
  });
  E('rooms',(d,cb)=>cb({list:open().map(r=>({code:r.code,mode:r.mode,host:(r.pl[r.host]||{}).n||'',n:Object.keys(r.pl).length}))}));
+ E('voice',(d,cb)=>{
+  if(!r||!r.pl[id])return;
+  const p=r.pl[id],g=ghost(r,id),b=d.buf;
+  if(d.c==='ghost'?!g:g)return cb({err:'Bu kanalda yozib bo‘lmaydi'});
+  if(!Buffer.isBuffer(b)||b.length<1000||b.length>VMAX||b.toString('latin1',0,4)!=='RIFF'||b.toString('latin1',8,12)!=='WAVE')return cb({err:'Ovoz fayli noto‘g‘ri yoki juda katta'});
+  if(now()-lv<2000)return cb({err:'Juda tez yuboryapsiz, biroz kuting'});
+  lv=now();
+  const vid=Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2),m={c:g?'ghost':'main',n:p.n,a:p.a,x:'',vid,dur:Math.max(1,Math.min(20,d.dur|0)),t:now()};
+  voices.set(vid,{b,room:r.code,t:now(),m});
+  r.chat.push(m);if(r.chat.length>100)r.chat.shift();
+  vtrim(r);push(r);cb({ok:1});
+ });
  E('leave',()=>{
   if(!r)return;const q=r;r=null;s.emit('gone');
   if(q.phase==='lobby')drop(q,id);else{delete where[id];if(q.pl[id])q.pl[id].sid=null}
@@ -121,6 +143,7 @@ io.on('connection',s=>{
 });
 
 setInterval(()=>{
+ for(const[vi,v]of voices)if(now()-v.t>864e5||!rooms[v.room])vevict(vi);
  for(const c in rooms){
   const r=rooms[c];
   if(now()-r.t>3*3600e3&&!Object.values(r.pl).some(p=>p.sid)){delete rooms[c];continue}
