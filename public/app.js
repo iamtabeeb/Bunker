@@ -28,14 +28,13 @@ const canRev=()=>S&&S.can,fail=m=>{err=m;toast(m,'er');render()};
 const em=(e,d)=>socket.emit(e,d,r=>{if(r&&r.err)fail(r.err)});
 const R=()=>({update:x=>em('set',x)}),PL=()=>({update:x=>'vt' in x?em('vote',x.vt):em('set',{play:x.p})});
 const ack=r=>{if(r&&r.err)fail(r.err);else{err='';ST.set('bk_c',r.code)}};
-const askAdult=f=>{pend=f;render()};
-const create=m=>{if(need())return;const go=ok=>socket.emit('join',{create:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
-const join=(c,ok)=>{if(need())return;if(c.length<5){fe='c';return fail('Xona kodini kiriting')}socket.emit('join',{code:c,adultOk:ok,pid:uid,name:nm,avatar:av0},r=>{if(r&&r.adult)askAdult(()=>join(c,true));else ack(r)})};
+const create=()=>{if(need())return;socket.emit('join',{create:1,pid:uid,name:nm,avatar:av0},ack)};
+const join=c=>{if(need())return;if(c.length<5){fe='c';return fail('Xona kodini kiriting')}socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0},ack)};
 let rl=[];
-const rlV=()=>rl.length?rl.map(r=>h('div',{class:'rr'+(r.mode==='adult'?' ar':'')},h('span',{},(r.mode==='adult'?'🔞 ':'')+(r.host||'Xona')+' · '+r.n+' / 20'),h('button',{class:'g',onclick:()=>join(r.code)},'Kirish'))):[h('div',{class:'empty'},h('i',{},'🏚️'),'Hozircha ochiq xona yo‘q')];
+const rlV=()=>rl.length?rl.map(r=>h('div',{class:'rr'},h('span',{},(r.host||'Xona')+' · '+r.n+' / 20'),h('button',{class:'g',onclick:()=>join(r.code)},'Kirish'))):[h('div',{class:'empty'},h('i',{},'🏚️'),'Hozircha ochiq xona yo‘q')];
 const loadRooms=()=>socket.emit('rooms',null,r=>{rl=(r&&r.list)||[];const x=$('#rl');if(x)x.replaceChildren(...rlV())});
 setInterval(()=>{if(!room)loadRooms()},5000);
-const quick=m=>{if(need())return;const go=ok=>socket.emit('join',{quick:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
+const quick=()=>{if(need())return;socket.emit('join',{quick:1,pid:uid,name:nm,avatar:av0},ack)};
 const start=()=>{err='';em('start')},rev=k=>em('reveal',k),adv=()=>em('skip');
 const leave=()=>{view='room';gt='cards';ag=null;inv=null;note='';pv=null;elim=0;elimSeen=false;S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
 const bye=()=>{socket.emit('leave');leave()};
@@ -45,15 +44,15 @@ socket.on('disconnect',()=>{$('#net').hidden=false});
 socket.on('connect',()=>{$('#net').hidden=true;loadRooms();const c=ST.get('bk_c');if(c)socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0,re:1},r=>{if(r&&r.err)leave()})});
 const left=()=>room&&room.phaseEnd?Math.max(0,Math.ceil((room.phaseEnd-Date.now())/1000)):0,mmss=n=>Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
 setInterval(()=>{if(!room)return;const l=left();$('#tm').textContent=room.phase==='lobby'&&room.auto?'Boshlanishiga '+Math.max(0,Math.ceil((room.auto-Date.now()-skew)/1000))+' s':PH[room.phase]?PH[room.phase]+(l?' · '+l+' s':''):'';const t=$('#ht');if(t){t.textContent=room.phaseEnd?mmss(l):'–';t.classList.toggle('low',l>0&&l<=10)}},1000);
-const gateV=()=>h('div',{class:'c'},h('h2',{style:'margin:0 0 6px'},'🔞 18+ ogohlantirish'),h('p',{},'Bu o‘yinda qorong‘i va kattalar uchun mavzular bor: kasalliklar, jinoyat, jinsiy mavzular, fobiyalar. Faqat 18 yoshdan oshganlar uchun.'),h('button',{onclick:()=>{ST.set('bk_18','1');ok18=1;render()}},'Men 18 yoshdaman'));
+
 function homeV(){
  const ci=h('input',{class:fe==='c'?'bad':'',placeholder:'Xona kodi',maxlength:5,value:jc,autocomplete:'off',autocapitalize:'characters',style:'text-transform:uppercase',oninput:e=>{jc=e.target.value;ci.classList.remove('bad')},onkeydown:e=>{if(e.key==='Enter')jb.click()}});
  const jb=h('button',{class:'blk',onclick:()=>join(ci.value.trim().toUpperCase()),disabled:!db},'Kirish');
  const ni=h('input',{class:fe==='n'?'bad':'',value:nm,maxlength:14,placeholder:'Ism',autocomplete:'off',oninput:e=>{nm=e.target.value;ST.set('bk_n',nm);ni.classList.remove('bad')}});
  const sa=a=>e=>{av0=a;ST.set('bk_a',a);document.querySelectorAll('.avg .av').forEach(b=>{const on=b===e.currentTarget;b.classList.toggle('sel',on);b.setAttribute('aria-pressed',String(on))})};
  const PN={
-  quick:()=>h('div',{class:'c'},h('b',{class:'ct'},'⚡ Tezkor o‘yin'),h('div',{class:'row2'},h('button',{onclick:()=>quick('normal')},'Oddiy'),h('button',{class:'adult',onclick:()=>quick('adult')},'🔞 18+')),h('div',{class:'mu sub'},'Ochiq xonalar'),h('div',{id:'rl'},rlV())),
-  create:()=>h('div',{class:'c'},h('b',{class:'ct'},'Xona yaratish'),h('div',{class:'row2'},h('button',{onclick:()=>create('normal')},'Oddiy xona yaratish'),h('button',{class:'adult',onclick:()=>create('adult')},'🔞 18+ xona yaratish'))),
+  quick:()=>h('div',{class:'c'},h('b',{class:'ct'},'⚡ Tezkor o‘yin'),h('div',{class:'row2'},h('button',{onclick:()=>quick()},'Tezkor o‘yinga kirish')),h('div',{class:'mu sub'},'Ochiq xonalar'),h('div',{id:'rl'},rlV())),
+  create:()=>h('div',{class:'c'},h('b',{class:'ct'},'Xona yaratish'),h('div',{class:'row2'},h('button',{onclick:()=>create()},'Xona yaratish'))),
   join:()=>h('div',{class:'c'},h('b',{class:'ct'},'Xonaga kirish'),fld('Xona kodi','🔑',ci,fe==='c'&&'Xona kodini kiriting'),jb)};
  return h('div',{},
   h('div',{class:'c'},h('b',{class:'ct'},'Ismingiz va avatar'),fld('Ism','👤',ni,fe==='n'&&'Avval ismingizni yozing'),h('div',{class:'avg'},AV.map(a=>h('button',{type:'button',class:'av'+(a===av0?' sel':''),'aria-pressed':String(a===av0),'aria-label':a,onclick:sa(a)},a)))),
@@ -64,15 +63,6 @@ function homeV(){
 const sett=(i,v)=>{const t=[...room.ts];t[i]=v;return R().update({ts:t})};
 const num=(l,val,cb)=>h('label',{class:'fld'},h('span',{},l),h('input',{type:'number',min:1,inputmode:'numeric',value:val,disabled:!isHost(),onchange:e=>cb(Math.max(1,+e.target.value||1))}));
 const RULES=['Maqsad: apokalipsisdan keyin bunkerda joy olish. Joylar cheklangan, kim kirishini ovoz berish hal qiladi.','Bunker joylari sonini xona egasi belgilaydi. Raundlar soni (6 tagacha) va har raundda necha kishi chiqishi avtomatik hisoblanadi.','Boshida har o‘yinchiga 6 ta yopiq karta beriladi: kasb, genetika, sog‘liq, bagaj, xarakter, fobiya. Senariy va bunker tavsifi tasodifiy.','Har raundda har o‘yinchi o‘zi xohlagan 1 ta kartani ochadi. Vaqt tugasa, tasodifiy karta ochiladi.','Keyin muhokama: ochilgan kartalar haqida chatda gaplashasiz.','Ovoz berish ochiq, o‘zingizga ham ovoz berish mumkin, vaqt tugaguncha ovozni o‘zgartirsa bo‘ladi.','Eng ko‘p ovoz olgan o‘yinchi(lar) bunkerdan chiqariladi.','Ovozlar teng bo‘lsa, teng bo‘lganlar yana bittadan karta ochadi va qayta ovoz beriladi. Yana teng bo‘lsa, tasodifiy tanlanadi.','Bunkerdagi joylar soniga teng o‘yinchi qolganda o‘yin tugaydi, qolganlar g‘olib. Chiqarilganlar “Arvohlar” chatida yoza oladi.'];
-function adultM(){
- const cm=f=>{o.classList.add('out');setTimeout(f,160)},no=()=>cm(()=>{pend=null;render()});
- const b=h('button',{disabled:true,onclick:()=>cm(()=>{const f=pend;pend=null;f()})},'Davom etish');
- const o=h('div',{class:'ov',onclick:e=>{if(e.target===o)no()}},h('div',{class:'md adult',role:'dialog','aria-modal':'true','aria-labelledby':'mt'},
-  h('span',{class:'badge18'},'18+'),h('h2',{id:'mt'},'🔞 18+ rejim'),h('p',{},'Bu xonada kasalliklar, jinsiy mavzular va fobiyalar kabi kattalar uchun kartalar bor. Faqat 18 yoshdan oshganlar kirishi mumkin.'),
-  h('label',{class:'chk'},h('input',{type:'checkbox',onchange:e=>{b.disabled=!e.target.checked}}),h('span',{},'Men 18 yoshdan kattaman va 18+ rejimga roziman')),
-  h('div',{class:'row2'},b,h('button',{class:'g',onclick:no},'Bekor qilish'))));
- return o;
-}
 function rulesV(){
  const a=h('div',{class:'c acc'+(rulesOpen?' open':'')},
   h('button',{type:'button',class:'acc-h','aria-expanded':String(rulesOpen),onclick:e=>{rulesOpen=!rulesOpen;a.classList.toggle('open',rulesOpen);e.currentTarget.setAttribute('aria-expanded',String(rulesOpen))}},h('b',{},'Qoidalar'),h('span',{class:'chev'})),
@@ -84,8 +74,7 @@ function lobbyV(){
  return [
   h('div',{class:'c hero'},h('div',{class:'mu'},'Xona kodi, do‘stlaringizga yuboring'),h('div',{class:'code'},code),
    h('button',{class:'cp',onclick:e=>{copy();pop(e.currentTarget)}},'📋 Nusxalash'),
-   h('div',{class:'mu',style:'margin-top:10px'},`Xona egasi: ${room.hostName} · Holat: kutish jarayonida · ${n} / 20 o‘yinchi`),
-   h('div',{class:'mode'+(room.mode==='adult'?' ad':'')},room.mode==='adult'?'🔞 18+ rejim: kasalliklar, jinsiy mavzular va fobiyalar kartalari ishlatiladi.':'Oddiy rejim: 18+ kartalarsiz.')),
+   h('div',{class:'mu',style:'margin-top:10px'},`Xona egasi: ${room.hostName} · Holat: kutish jarayonida · ${n} / 20 o‘yinchi`)),
   playersV(),
   h('div',{class:'c'},h('b',{class:'ct'},'Vaqt va sozlamalar'),
    h('div',{class:'grid2'},num('Bunker joylari',room.pk,v=>R().update({pk:v})),num('Karta ochish (s)',room.ts[0],v=>sett(0,v)),num('Muhokama (s)',room.ts[1],v=>sett(1,v)),num('Ovoz berish (s)',room.ts[2],v=>sett(2,v))),
@@ -199,7 +188,7 @@ $('#cs').before(h('button',{id:'cm',class:'g',onclick:()=>{verr='';if(rec)recSto
 $('#msgs').after(h('div',{id:'vbox'}));
 function info(){
  const b=room.bk;
- return h('div',{class:'c'},h('b',{class:'scn'},'Apokalipsis: '+room.sc+(room.mode==='adult'?' · 🔞 18+':'')),
+ return h('div',{class:'c'},h('b',{class:'scn'},'Apokalipsis: '+room.sc),
   h('div',{class:'mu'},`🏚️ Bunker: ${b.m2} m², zaxira ${b.oy} oyga yetadi, jihozlar: ${b.jh.join(', ')}. Tashqarida xavf ${b.yil} yil davom etadi.`),
   h('div',{class:'mu',style:'margin-top:4px'},`Raund ${room.round}/${room.plan.length} · bunkerda ${room.pk} joy · bu raundda ${room.need??room.plan[room.round-1]} kishi chiqariladi`),
   isHost()&&room.phase!=='end'&&h('button',{class:'g blk',style:'margin-top:10px',onclick:adv},'Keyingi bosqichga o‘tish'));
@@ -274,8 +263,7 @@ function render(){
  if(sk!==lastSk){lastSk=sk;fx=1}
  FX=fx;fx=0;
  const base=!room?homeV():view==='arcade'?ent(arcV()):roomV();
- $('#scr').replaceChildren(...(pend?[base,adultM()]:[base]));
- if(pend){const f=$('.md input');f&&f.focus()}
+ $('#scr').replaceChildren(base);
  const cb=$('#chat'),was=cb.hidden;
  cb.hidden=!room||(ig&&gt!=='chat');
  document.body.classList.toggle('ig',ig);
@@ -302,5 +290,4 @@ $('#cs').onclick=send;$('#ci').onkeydown=e=>{if(e.key==='Enter')send()};
 const setTh=t=>{document.documentElement.dataset.theme=t;ST.set('bk_theme',t);const mt=document.querySelector('meta[name=theme-color]');if(mt)mt.content=t==='light'?'#F3F4F6':'#0E1015'};
 setTh(document.documentElement.dataset.theme==='light'?'light':'dark');
 $('#th').onclick=()=>{const d=document.documentElement;d.classList.add('tt');setTh(d.dataset.theme==='light'?'dark':'light');setTimeout(()=>d.classList.remove('tt'),350)};
-addEventListener('keydown',e=>{if(e.key==='Escape'&&pend){pend=null;render()}});
 render();
