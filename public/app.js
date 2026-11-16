@@ -3,65 +3,98 @@ const h=(t,a,...c)=>{const e=document.createElement(t);for(const k in a||{}){con
 const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1)),pick=a=>a[rnd(0,a.length-1)];
 const sv={},ST={get(k){try{return localStorage.getItem(k)}catch(e){return sv[k]}},set(k,v){try{localStorage.setItem(k,v)}catch(e){sv[k]=v}}};
 const CATS=[["kasb","Kasb"],["gen","Genetika"],["sog","Sog‘liq"],["bag","Bagaj"],["xar","Xarakter"],["fob","Fobiya"]],LB=Object.fromEntries(CATS);
-const AV=["😎","🧔","👩","🧓","👨‍⚕️","🥷","🧙","🤠","👷","🕵️","🧑‍🚀","🦊"];
+const AV=["🧔‍♂️","👨‍⚕️","👨‍🚀","🕵️‍♂️","🤵‍♂️","👷‍♂️","🧙‍♂️","👩","👩‍⚕️","👩‍🚀","🕵️‍♀️","👸","👩‍💻","🧙‍♀️","😎","🥷","🤖","👽","🦊","🐺"];
 const PH={reveal:'Karta ochish',discuss:'Muhokama',vote:'Ovoz berish',tie:'Teng ovoz',result:'Natija',end:'Yakun'};
 let db=1,code,room=null,pl={},ch=[],tab='main',hand=null,err='',S=null,skew=0,pend=null,view='room',ag=null,elim=0,elimSeen=false,inv=null,note='',pv=null,plist=[],bo=3,nm=ST.get('bk_n')||'',av0=ST.get('bk_a')||'😎';
 let uid=ST.get('bk_uid');if(!uid){uid=Math.random().toString(36).slice(2,10);ST.set('bk_uid',uid)}
+if(!AV.includes(av0))av0='😎';
+const IC={kasb:'💼',gen:'🧬',sog:'❤️',bag:'🎒',xar:'🎭',fob:'😱'};
+let hm='quick',jc='',fe='',gt='cards',rulesOpen=false,FX=0,fx=0,lastSk='',lastPh='',flInit=0,pgPrev=0,seenCh=0,lastRev=0;const fl=new Set,fa={},sp={};
+const tw=(el,a,b)=>{el.style.transform=a;if(a!==b)requestAnimationFrame(()=>requestAnimationFrame(()=>{el.style.transform=b}))};
+const ent=e=>(FX&&e.classList.add('enter'),e);
+const pop=b=>{b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop')};
+const toast=(m,t)=>{const c=$('#toasts'),e=h('div',{class:'toast '+(t||''),role:'status'},h('span',{},t==='er'?'⚠️':'✓'),m);c.append(e);while(c.children.length>3)c.firstChild.remove();setTimeout(()=>{e.classList.add('out');setTimeout(()=>e.remove(),220)},2600)};
+const errBox=()=>h('div',{class:'errbox',role:'alert'},h('i',{},'⚠️'),err);
+const fld=(lab,ic,inp,msg)=>h('label',{class:'fld'},h('span',{},lab),h('div',{class:'fi'},h('i',{},ic),inp),msg&&h('small',{class:'fm'},msg));
+const seg=(id,items,cur,fn)=>{const i=h('i',{class:'sgi'}),n=items.findIndex(x=>x[0]===cur);tw(i,`translateX(${(sp[id]??n)*100}%)`,`translateX(${n*100}%)`);sp[id]=n;
+ return h('div',{class:'seg',role:'tablist'},i,items.map(([k,l,dot])=>h('button',{type:'button',role:'tab','aria-selected':String(k===cur),class:(k===cur?'on':'')+(dot&&k!==cur?' dot':''),onclick:()=>fn(k)},l)))};
+const need=()=>{fe='';if(!nm.trim()){fe='n';fail('Avval ismingizni yozing');return 1}};
+const copy=()=>{const ok=()=>toast('Kod nusxalandi','ok'),no=()=>toast('Nusxalab bo‘lmadi','er');
+ const fb=()=>{const t=h('textarea',{readonly:true,style:'position:fixed;opacity:0;top:0'});t.value=code;document.body.append(t);t.select();let r=0;try{r=document.execCommand('copy')}catch(e){}t.remove();r?ok():no()};
+ navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(code).then(ok,fb):fb()};
 const socket=io();
 const mp=()=>pl[uid],alive=()=>Object.keys(pl).filter(i=>pl[i].al),playing=()=>Object.keys(pl).filter(i=>pl[i].p),isHost=()=>room&&room.host===uid,nc=p=>Object.keys(p.cards||{}).length;
-const canRev=()=>S&&S.can,fail=m=>{err=m;render()};
+const canRev=()=>S&&S.can,fail=m=>{err=m;toast(m,'er');render()};
 const em=(e,d)=>socket.emit(e,d,r=>{if(r&&r.err)fail(r.err)});
 const R=()=>({update:x=>em('set',x)}),PL=()=>({update:x=>'vt' in x?em('vote',x.vt):em('set',{play:x.p})});
 const ack=r=>{if(r&&r.err)fail(r.err);else{err='';ST.set('bk_c',r.code)}};
 const askAdult=f=>{pend=f;render()};
-const create=m=>{if(!nm.trim())return fail('Avval ismingizni yozing');const go=ok=>socket.emit('join',{create:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
-const join=(c,ok)=>{if(!nm.trim())return fail('Avval ismingizni yozing');if(c.length<5)return fail('Xona kodini kiriting');socket.emit('join',{code:c,adultOk:ok,pid:uid,name:nm,avatar:av0},r=>{if(r&&r.adult)askAdult(()=>join(c,true));else ack(r)})};
+const create=m=>{if(need())return;const go=ok=>socket.emit('join',{create:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
+const join=(c,ok)=>{if(need())return;if(c.length<5){fe='c';return fail('Xona kodini kiriting')}socket.emit('join',{code:c,adultOk:ok,pid:uid,name:nm,avatar:av0},r=>{if(r&&r.adult)askAdult(()=>join(c,true));else ack(r)})};
 let rl=[];
-const rlV=()=>rl.length?rl.map(r=>h('div',{class:'row',style:'justify-content:space-between;padding:6px 0;border-top:1px solid var(--bd)'},h('span',{},(r.mode==='adult'?'🔞 ':'')+(r.host||'Xona')+' · '+r.n+' / 20'),h('button',{class:'g',onclick:()=>join(r.code)},'Kirish'))):[h('div',{class:'mu'},'Hozircha ochiq xona yo‘q')];
+const rlV=()=>rl.length?rl.map(r=>h('div',{class:'rr'+(r.mode==='adult'?' ar':'')},h('span',{},(r.mode==='adult'?'🔞 ':'')+(r.host||'Xona')+' · '+r.n+' / 20'),h('button',{class:'g',onclick:()=>join(r.code)},'Kirish'))):[h('div',{class:'empty'},h('i',{},'🏚️'),'Hozircha ochiq xona yo‘q')];
 const loadRooms=()=>socket.emit('rooms',null,r=>{rl=(r&&r.list)||[];const x=$('#rl');if(x)x.replaceChildren(...rlV())});
 setInterval(()=>{if(!room)loadRooms()},5000);
-const quick=m=>{if(!nm.trim())return fail('Avval ismingizni yozing');const go=ok=>socket.emit('join',{quick:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
+const quick=m=>{if(need())return;const go=ok=>socket.emit('join',{quick:1,mode:m,adultOk:ok,pid:uid,name:nm,avatar:av0},ack);m==='adult'?askAdult(()=>go(true)):go(false)};
 const start=()=>{err='';em('start')},rev=k=>em('reveal',k),adv=()=>em('skip');
-const leave=()=>{view='room';ag=null;inv=null;note='';pv=null;elim=0;elimSeen=false;S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
+const leave=()=>{view='room';gt='cards';ag=null;inv=null;note='';pv=null;elim=0;elimSeen=false;S=room=null;pl={};ch=[];hand=null;code=null;ST.set('bk_c','');render();loadRooms()};
 const bye=()=>{socket.emit('leave');leave()};
 socket.on('state',s=>{S=s;skew=s.srv-Date.now();room=s;room.phaseEnd=s.end?s.end-skew:0;pl=Object.fromEntries(s.players.map(p=>[p.id,p]));hand=s.hand;ch=s.chat;code=s.code;chkElim();render()});
 socket.on('gone',leave);
-socket.on('connect',()=>{loadRooms();const c=ST.get('bk_c');if(c)socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0,re:1},r=>{if(r&&r.err)leave()})});
-setInterval(()=>{if(!room)return;const l=room.phaseEnd?Math.max(0,Math.ceil((room.phaseEnd-Date.now())/1000)):0;$('#tm').textContent=room.phase==='lobby'&&room.auto?'Boshlanishiga '+Math.max(0,Math.ceil((room.auto-Date.now()-skew)/1000))+' s':PH[room.phase]?PH[room.phase]+(l?' · '+l+' s':''):''},1000);
+socket.on('disconnect',()=>{$('#net').hidden=false});
+socket.on('connect',()=>{$('#net').hidden=true;loadRooms();const c=ST.get('bk_c');if(c)socket.emit('join',{code:c,pid:uid,name:nm,avatar:av0,re:1},r=>{if(r&&r.err)leave()})});
+const left=()=>room&&room.phaseEnd?Math.max(0,Math.ceil((room.phaseEnd-Date.now())/1000)):0,mmss=n=>Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
+setInterval(()=>{if(!room)return;const l=left();$('#tm').textContent=room.phase==='lobby'&&room.auto?'Boshlanishiga '+Math.max(0,Math.ceil((room.auto-Date.now()-skew)/1000))+' s':PH[room.phase]?PH[room.phase]+(l?' · '+l+' s':''):'';const t=$('#ht');if(t){t.textContent=room.phaseEnd?mmss(l):'–';t.classList.toggle('low',l>0&&l<=10)}},1000);
 const gateV=()=>h('div',{class:'c'},h('h2',{style:'margin:0 0 6px'},'🔞 18+ ogohlantirish'),h('p',{},'Bu o‘yinda qorong‘i va kattalar uchun mavzular bor: kasalliklar, jinoyat, jinsiy mavzular, fobiyalar. Faqat 18 yoshdan oshganlar uchun.'),h('button',{onclick:()=>{ST.set('bk_18','1');ok18=1;render()}},'Men 18 yoshdaman'));
 function homeV(){
- const ci=h('input',{placeholder:'Xona kodi',maxlength:5,style:'text-transform:uppercase'});
+ const ci=h('input',{class:fe==='c'?'bad':'',placeholder:'Xona kodi',maxlength:5,value:jc,autocomplete:'off',autocapitalize:'characters',style:'text-transform:uppercase',oninput:e=>{jc=e.target.value;ci.classList.remove('bad')},onkeydown:e=>{if(e.key==='Enter')jb.click()}});
+ const jb=h('button',{class:'blk',onclick:()=>join(ci.value.trim().toUpperCase()),disabled:!db},'Kirish');
+ const ni=h('input',{class:fe==='n'?'bad':'',value:nm,maxlength:14,placeholder:'Ism',autocomplete:'off',oninput:e=>{nm=e.target.value;ST.set('bk_n',nm);ni.classList.remove('bad')}});
+ const sa=a=>e=>{av0=a;ST.set('bk_a',a);document.querySelectorAll('.avg .av').forEach(b=>{const on=b===e.currentTarget;b.classList.toggle('sel',on);b.setAttribute('aria-pressed',String(on))})};
+ const PN={
+  quick:()=>h('div',{class:'c'},h('b',{class:'ct'},'⚡ Tezkor o‘yin'),h('div',{class:'row2'},h('button',{onclick:()=>quick('normal')},'Oddiy'),h('button',{class:'adult',onclick:()=>quick('adult')},'🔞 18+')),h('div',{class:'mu sub'},'Ochiq xonalar'),h('div',{id:'rl'},rlV())),
+  create:()=>h('div',{class:'c'},h('b',{class:'ct'},'Xona yaratish'),h('div',{class:'row2'},h('button',{onclick:()=>create('normal')},'Oddiy xona yaratish'),h('button',{class:'adult',onclick:()=>create('adult')},'🔞 18+ xona yaratish'))),
+  join:()=>h('div',{class:'c'},h('b',{class:'ct'},'Xonaga kirish'),fld('Xona kodi','🔑',ci,fe==='c'&&'Xona kodini kiriting'),jb)};
  return h('div',{},
-  h('div',{class:'c'},h('b',{},'Ismingiz va avatar'),
-   h('input',{value:nm,maxlength:14,placeholder:'Ism',style:'margin-top:6px',oninput:e=>{nm=e.target.value;ST.set('bk_n',nm)}}),
-   h('div',{class:'row',style:'margin-top:8px'},AV.map(a=>h('span',{class:'av'+(a===av0?' sel':''),onclick:()=>{av0=a;ST.set('bk_a',a);render()}},a)))),
-  h('div',{class:'c'},h('b',{},'⚡ Tezkor o‘yin'),h('div',{class:'row',style:'margin:6px 0'},h('button',{onclick:()=>quick('normal')},'Oddiy'),h('button',{class:'g',onclick:()=>quick('adult')},'🔞 18+')),h('div',{class:'mu',style:'margin-top:8px'},'Ochiq xonalar'),h('div',{id:'rl'},rlV())),
-  h('div',{class:'c'},h('div',{class:'row'},h('button',{onclick:()=>create('normal')},'Oddiy xona yaratish'),h('button',{class:'g',onclick:()=>create('adult')},'🔞 18+ xona yaratish')),
-   h('div',{class:'row',style:'margin-top:10px'},ci,h('button',{class:'g',onclick:()=>join(ci.value.trim().toUpperCase()),disabled:!db},'Kirish'))),
-  err&&h('div',{class:'c',style:'color:var(--rd)'},err));
+  h('div',{class:'c'},h('b',{class:'ct'},'Ismingiz va avatar'),fld('Ism','👤',ni,fe==='n'&&'Avval ismingizni yozing'),h('div',{class:'avg'},AV.map(a=>h('button',{type:'button',class:'av'+(a===av0?' sel':''),'aria-pressed':String(a===av0),'aria-label':a,onclick:sa(a)},a)))),
+  seg('hm',[['quick','Tezkor o‘yin'],['create','Xona yaratish'],['join','Xonaga kirish']],hm,k=>{hm=k;fx=1;render()}),
+  ent(PN[hm]()),
+  err&&!fe&&errBox());
 }
 const sett=(i,v)=>{const t=[...room.ts];t[i]=v;return R().update({ts:t})};
-const num=(l,val,cb)=>h('label',{class:'mu',style:'flex:1;min-width:100px'},l,h('input',{type:'number',min:1,value:val,disabled:!isHost(),onchange:e=>cb(Math.max(1,+e.target.value||1))}));
+const num=(l,val,cb)=>h('label',{class:'fld'},h('span',{},l),h('input',{type:'number',min:1,inputmode:'numeric',value:val,disabled:!isHost(),onchange:e=>cb(Math.max(1,+e.target.value||1))}));
 const RULES=['Maqsad: apokalipsisdan keyin bunkerda joy olish. Joylar cheklangan, kim kirishini ovoz berish hal qiladi.','Bunker joylari sonini xona egasi belgilaydi. Raundlar soni (6 tagacha) va har raundda necha kishi chiqishi avtomatik hisoblanadi.','Boshida har o‘yinchiga 6 ta yopiq karta beriladi: kasb, genetika, sog‘liq, bagaj, xarakter, fobiya. Senariy va bunker tavsifi tasodifiy.','Har raundda har o‘yinchi o‘zi xohlagan 1 ta kartani ochadi. Vaqt tugasa, tasodifiy karta ochiladi.','Keyin muhokama: ochilgan kartalar haqida chatda gaplashasiz.','Ovoz berish ochiq, o‘zingizga ham ovoz berish mumkin, vaqt tugaguncha ovozni o‘zgartirsa bo‘ladi.','Eng ko‘p ovoz olgan o‘yinchi(lar) bunkerdan chiqariladi.','Ovozlar teng bo‘lsa, teng bo‘lganlar yana bittadan karta ochadi va qayta ovoz beriladi. Yana teng bo‘lsa, tasodifiy tanlanadi.','Bunkerdagi joylar soniga teng o‘yinchi qolganda o‘yin tugaydi, qolganlar g‘olib. Chiqarilganlar “Arvohlar” chatida yoza oladi.'];
-function adultV(){
- const b=h('button',{disabled:true,onclick:()=>{const f=pend;pend=null;f()}},'Davom etish');
- return h('div',{class:'c'},h('h2',{style:'margin:0 0 6px'},'🔞 18+ rejim'),h('p',{},'Bu xonada kasalliklar, jinsiy mavzular va fobiyalar kabi kattalar uchun kartalar bor. Faqat 18 yoshdan oshganlar kirishi mumkin.'),
-  h('label',{style:'display:block;margin:8px 0'},h('input',{type:'checkbox',onchange:e=>{b.disabled=!e.target.checked}}),' Men 18 yoshdan kattaman va 18+ rejimga roziman'),b,' ',h('button',{class:'g',onclick:()=>{pend=null;render()}},'Bekor qilish'));
+function adultM(){
+ const cm=f=>{o.classList.add('out');setTimeout(f,160)},no=()=>cm(()=>{pend=null;render()});
+ const b=h('button',{disabled:true,onclick:()=>cm(()=>{const f=pend;pend=null;f()})},'Davom etish');
+ const o=h('div',{class:'ov',onclick:e=>{if(e.target===o)no()}},h('div',{class:'md adult',role:'dialog','aria-modal':'true','aria-labelledby':'mt'},
+  h('span',{class:'badge18'},'18+'),h('h2',{id:'mt'},'🔞 18+ rejim'),h('p',{},'Bu xonada kasalliklar, jinsiy mavzular va fobiyalar kabi kattalar uchun kartalar bor. Faqat 18 yoshdan oshganlar kirishi mumkin.'),
+  h('label',{class:'chk'},h('input',{type:'checkbox',onchange:e=>{b.disabled=!e.target.checked}}),h('span',{},'Men 18 yoshdan kattaman va 18+ rejimga roziman')),
+  h('div',{class:'row2'},b,h('button',{class:'g',onclick:no},'Bekor qilish'))));
+ return o;
 }
-function lobby(){
+function rulesV(){
+ const a=h('div',{class:'c acc'+(rulesOpen?' open':'')},
+  h('button',{type:'button',class:'acc-h','aria-expanded':String(rulesOpen),onclick:e=>{rulesOpen=!rulesOpen;a.classList.toggle('open',rulesOpen);e.currentTarget.setAttribute('aria-expanded',String(rulesOpen))}},h('b',{},'Qoidalar'),h('span',{class:'chev'})),
+  h('div',{class:'acc-b'},h('div',{class:'acc-i'},h('div',{class:'acc-p'},h('ol',{},RULES.map(x=>h('li',{},x)))))));
+ return a;
+}
+function lobbyV(){
  const n=playing().length,rd=playing().filter(i=>pl[i].rd).length,m=mp();
- return h('div',{},
-  h('div',{class:'c'},h('div',{class:'mu'},'Xona kodi, do‘stlaringizga yuboring'),h('div',{class:'code'},code),
-   h('div',{class:'mu'},`Xona egasi: ${room.hostName} · Holat: kutish jarayonida · ${n} / 20 o‘yinchi`),
-   h('div',{style:'margin-top:6px'},room.mode==='adult'?'🔞 18+ rejim: kasalliklar, jinsiy mavzular va fobiyalar kartalari ishlatiladi.':'Oddiy rejim: 18+ kartalarsiz.')),
-  h('div',{class:'c'},h('b',{},'Vaqt va sozlamalar'),
-   h('div',{class:'row',style:'margin-top:6px'},num('Bunker joylari',room.pk,v=>R().update({pk:v})),num('Karta ochish (s)',room.ts[0],v=>sett(0,v)),num('Muhokama (s)',room.ts[1],v=>sett(1,v)),num('Ovoz berish (s)',room.ts[2],v=>sett(2,v))),
-   isHost()&&h('label',{class:'mu',style:'display:block;margin-top:8px'},h('input',{type:'checkbox',checked:room.pub,onchange:e=>R().update({pub:e.target.checked})}),' Ochiq xona (tezkor o‘yinda ko‘rinadi, 6 kishi to‘lsa o‘zi boshlanadi)'),
-   isHost()&&h('label',{class:'mu',style:'display:block;margin-top:8px'},h('input',{type:'checkbox',checked:m&&m.p,onchange:e=>PL(uid).update({p:e.target.checked,al:e.target.checked})}),' Men ham o‘ynayman')),
-  h('details',{class:'c',open:true},h('summary',{},h('b',{},'Qoidalar')),h('ol',{style:'padding-left:18px;margin:6px 0'},RULES.map(x=>h('li',{},x)))),
-  h('div',{class:'c'},h('div',{class:'mu',style:'margin-bottom:8px'},`Tayyor: ${rd} / ${n}`),
-   m&&m.p&&h('button',{class:m.rd?'g':'',style:'margin-right:8px',onclick:()=>em('ready',!m.rd)},m.rd?'Tayyor emasman':'Tayyorman'),
-   isHost()?h('button',{onclick:start},'O‘yinni boshlash'):h('span',{class:'mu'},'Xona egasi boshlashini kuting...')));
+ return [
+  h('div',{class:'c hero'},h('div',{class:'mu'},'Xona kodi, do‘stlaringizga yuboring'),h('div',{class:'code'},code),
+   h('button',{class:'cp',onclick:e=>{copy();pop(e.currentTarget)}},'📋 Nusxalash'),
+   h('div',{class:'mu',style:'margin-top:10px'},`Xona egasi: ${room.hostName} · Holat: kutish jarayonida · ${n} / 20 o‘yinchi`),
+   h('div',{class:'mode'+(room.mode==='adult'?' ad':'')},room.mode==='adult'?'🔞 18+ rejim: kasalliklar, jinsiy mavzular va fobiyalar kartalari ishlatiladi.':'Oddiy rejim: 18+ kartalarsiz.')),
+  playersV(),
+  h('div',{class:'c'},h('b',{class:'ct'},'Vaqt va sozlamalar'),
+   h('div',{class:'grid2'},num('Bunker joylari',room.pk,v=>R().update({pk:v})),num('Karta ochish (s)',room.ts[0],v=>sett(0,v)),num('Muhokama (s)',room.ts[1],v=>sett(1,v)),num('Ovoz berish (s)',room.ts[2],v=>sett(2,v))),
+   isHost()&&h('label',{class:'set'},h('span',{},'Ochiq xona (tezkor o‘yinda ko‘rinadi, 6 kishi to‘lsa o‘zi boshlanadi)'),h('input',{type:'checkbox',class:'sw',checked:room.pub,onchange:e=>R().update({pub:e.target.checked})})),
+   isHost()&&h('label',{class:'set'},h('span',{},'Men ham o‘ynayman'),h('input',{type:'checkbox',class:'sw',checked:m&&m.p,onchange:e=>PL(uid).update({p:e.target.checked,al:e.target.checked})}))),
+  rulesV(),
+  h('div',{class:'c'},h('div',{class:'mu',style:'margin-bottom:10px'},`Tayyor: ${rd} / ${n}`),
+   h('div',{class:'row2'},m&&m.p&&h('button',{class:m.rd?'g':'',onclick:()=>em('ready',!m.rd)},m.rd?'Tayyor emasman':'Tayyorman'),
+   isHost()?h('button',{onclick:start},'O‘yinni boshlash'):h('span',{class:'mu'},'Xona egasi boshlashini kuting...')))];
 }
 socket.on('arc:game',g=>{ag=g;sync48();if(g){note='';err=''}render()});
 function chkElim(){const m=mp();if(!room||room.phase==='lobby'){elimSeen=false;return}if(m&&m.p&&!m.al&&room.phase!=='end'&&!elimSeen){elimSeen=true;elim=1}}
@@ -136,7 +169,7 @@ function wav(ch,sr){
 function vrender(){
  const b=$('#vbox');if(!b)return;let c=null;
  if(rec)c=h('div',{class:'row'},h('span',{},'🔴 Yozilmoqda '+Math.min(20,Math.floor((Date.now()-rec.t0)/1000))+' / 20 s'),h('button',{onclick:recStop},'⏹ To‘xtatish'),h('button',{class:'g',onclick:vcancel},'Bekor qilish'));
- else if(vs)c=h('div',{},h('audio',{controls:true,src:vs.url,style:'width:100%'}),h('div',{class:'row',style:'margin-top:6px'},h('span',{class:'mu'},Math.round(vs.dur)+' s'),h('button',{disabled:vbusy,onclick:vsend},vbusy?'Yuborilmoqda...':'📤 Yuborish'),h('button',{class:'g',onclick:vcancel},'Bekor qilish')));
+ else if(vs)c=h('div',{},h('audio',{controls:true,src:vs.url,style:'width:100%'}),h('div',{class:'row',style:'margin-top:6px'},h('span',{class:'mu'},Math.round(vs.dur)+' s'),h('button',{class:vbusy?'ld':'',disabled:vbusy,onclick:vsend},vbusy?'Yuborilmoqda...':'📤 Yuborish'),h('button',{class:'g',onclick:vcancel},'Bekor qilish')));
  if(verr)c=h('div',{},c,h('div',{style:'color:var(--rd);margin-top:4px'},verr));
  b.replaceChildren(...(c?[c]:[]));
 }
@@ -166,44 +199,88 @@ $('#cs').before(h('button',{id:'cm',class:'g',onclick:()=>{verr='';if(rec)recSto
 $('#msgs').after(h('div',{id:'vbox'}));
 function info(){
  const b=room.bk;
- return h('div',{class:'c'},h('b',{},'Apokalipsis: '+room.sc+(room.mode==='adult'?' · 🔞 18+':'')),
+ return h('div',{class:'c'},h('b',{class:'scn'},'Apokalipsis: '+room.sc+(room.mode==='adult'?' · 🔞 18+':'')),
   h('div',{class:'mu'},`🏚️ Bunker: ${b.m2} m², zaxira ${b.oy} oyga yetadi, jihozlar: ${b.jh.join(', ')}. Tashqarida xavf ${b.yil} yil davom etadi.`),
-  h('div',{class:'mu'},`Raund ${room.round}/${room.plan.length} · bunkerda ${room.pk} joy · bu raundda ${room.need??room.plan[room.round-1]} kishi chiqariladi`),
-  isHost()&&room.phase!=='end'&&h('button',{class:'g',style:'margin-top:8px',onclick:adv},'Keyingi bosqichga o‘tish'));
+  h('div',{class:'mu',style:'margin-top:4px'},`Raund ${room.round}/${room.plan.length} · bunkerda ${room.pk} joy · bu raundda ${room.need??room.plan[room.round-1]} kishi chiqariladi`),
+  isHost()&&room.phase!=='end'&&h('button',{class:'g blk',style:'margin-top:10px',onclick:adv},'Keyingi bosqichga o‘tish'));
 }
-function players(){
- const ph=room.phase,m=mp(),vt=ph==='vote'&&m&&m.al;
- return h('div',{class:'c'},h('b',{},'O‘yinchilar'),Object.keys(pl).filter(i=>pl[i].p).map(i=>{
-  const p=pl[i],can=vt&&p.al&&(!room.cand||room.cand.includes(i)),vs=Object.keys(pl).filter(j=>pl[j].vt===i);
-  return h('div',{class:'p'+(p.al||ph==='lobby'?'':' out')},h('span',{class:'av'},p.a),
-   h('div',{style:'flex:1'},h('div',{},p.n+(i===room.host?' 👑':'')+(i===uid?' (siz)':'')+(ph==='lobby'?(p.rd?' ✅':' ⏳'):'')+(p.al||ph==='lobby'?'':' ❌')),
-    h('div',{},Object.entries(p.cards||{}).map(([k,v])=>h('span',{class:'chip'},LB[k]+': '+v))),
-    vs.length>0&&['vote','tie','result'].includes(ph)&&h('div',{class:'mu'},'Ovoz berganlar: '+vs.map(j=>pl[j].a+' '+pl[j].n).join(', '))),
-   can&&h('button',{class:m.vt===i?'':'g',onclick:()=>PL(uid).update({vt:i})},m.vt===i?'Tanlandi':'Ovoz'))}));
+function playersV(){
+ const ph=room.phase,m=mp(),vt=ph==='vote'&&m&&m.al,lb=ph==='lobby',ids=Object.keys(pl).filter(i=>pl[i].p);
+ return h('div',{class:'c'},h('div',{class:'row sp'},h('b',{class:'ct',style:'margin:0'},'O‘yinchilar'),h('span',{class:'cnt'},ids.length+' / 20')),
+  ids.length?ids.map(i=>{
+   const p=pl[i],can=vt&&p.al&&(!room.cand||room.cand.includes(i)),vs=Object.keys(pl).filter(j=>pl[j].vt===i),out=!(p.al||lb);
+   return h('div',{class:'pc'+(i===uid?' me':'')+(out?' out':'')},h('div',{class:'pav'},p.a),
+    h('div',{class:'pb'},h('div',{class:'pnm'},p.n+(i===room.host?' 👑':''),i===uid&&h('span',{class:'you'},' (siz)'),out&&' ❌'),
+     !lb&&h('div',{class:'mu'},'Ochgan: '+nc(p)+'/'+CATS.length),
+     h('div',{class:'chips'},Object.entries(p.cards||{}).map(([k,v])=>h('span',{class:'chip'},h('i',{},IC[k]),LB[k]+': '+v))),
+     vs.length>0&&['vote','tie','result'].includes(ph)&&h('div',{class:'mu',style:'margin-top:4px'},'Ovoz berganlar: '+vs.map(j=>pl[j].a+' '+pl[j].n).join(', '))),
+    lb&&h('span',{class:'bdg '+(p.rd?'ok':'wt')},p.rd?'✅ Tayyor':'⏳ Kutilmoqda'),
+    can&&h('button',{class:m.vt===i?'':'g',onclick:()=>PL(uid).update({vt:i})},m.vt===i?'Tanlandi':'Ovoz'))
+  }):h('div',{class:'empty'},h('i',{},'👥'),'Hozircha o‘yinchi yo‘q'));
 }
-function handV(){
- const m=mp(),can=canRev(m);
- return h('div',{class:'c'},h('b',{},'Sizning kartalaringiz (boshqalar ko‘rmaydi)'),
-  CATS.map(([k,l])=>h('div',{class:'hand'},h('div',{},h('span',{class:'mu'},l+': '),hand[k]),m.cards[k]?h('span',{class:'mu'},'Ochilgan'):h('button',{disabled:!can,onclick:()=>rev(k)},'Ochish'))),
-  can&&h('div',{class:'mu',style:'margin-top:6px'},room.phase==='tie'?'Ovozlar teng: yana bitta karta oching':'Shu raundda bitta karta oching'));
+function kcard(k,l,m){
+ const op=!!m.cards[k],can=canRev()&&!op,val=hand[k];let cls='kc'+(op?' rv':'')+(can?' can':''),st='';
+ if(op&&!fl.has(k)){const t=fa[k]||(fa[k]=Date.now()),e=Date.now()-t;if(e<650){cls+=' new';st='animation-delay:-'+e+'ms'}else fl.add(k)}
+ const head=()=>h('div',{class:'kh'},h('i',{},IC[k]),h('span',{},l.toUpperCase())),body=()=>h('div',{class:'kv'+(val.length>40?' sm':'')},val);
+ const act=()=>{if(!canRev()||mp().cards[k]||Date.now()-lastRev<700)return;lastRev=Date.now();rev(k)};
+ return h('div',{class:cls,role:'button',tabindex:can?'0':'-1','aria-disabled':can?null:'true','aria-label':l+': '+val+(op?' (ochilgan)':''),onclick:act,onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}}},
+  h('div',{class:'ki',style:st},
+   h('div',{class:'kf'},head(),body(),can?h('span',{class:'pl act'},'Ochish'):h('span',{class:'pl'},'🔒 FAQAT SEN')),
+   h('div',{class:'kf bk'},head(),body(),h('span',{class:'stp'},'✓ OCHILDI'),h('span',{class:'pl ok'},'Ochilgan'))));
+}
+function cardsV(){
+ const m=mp(),ph=room.phase;
+ if(!(hand&&m&&m.al&&ph!=='end'&&ph!=='lobby'))return h('div',{class:'empty'},h('i',{},'🃏'),m&&m.p&&!m.al&&ph!=='end'?'Siz o‘yindan chiqdingiz!':ph==='end'?'Asosiy o‘yin yakunlandi.':'Hozircha ko‘rsatiladigan kartalar yo‘q');
+ const tot=CATS.length,op=nc(m),can=canRev(),bar=h('i');tw(bar,`scaleX(${pgPrev/tot})`,`scaleX(${op/tot})`);pgPrev=op;
+ return h('div',{},
+  h('div',{class:'c prog'},h('div',{class:'row sp',style:'margin-bottom:8px'},h('b',{class:'ct',style:'margin:0'},'HAMMAGA OCHILGAN'),h('b',{class:'pn2'},op+'/'+tot)),h('div',{class:'bar'},bar),
+   can&&h('div',{class:'mu',style:'margin-top:8px'},ph==='tie'?'Ovozlar teng: yana bitta karta oching':'Shu raundda bitta karta oching')),
+  h('div',{class:'mu',style:'margin:0 2px 8px'},'Sizning kartalaringiz (boshqalar ko‘rmaydi)'),
+  h('div',{class:'kg'},CATS.map(([k,l])=>kcard(k,l,m))));
+}
+function tableV(){
+ const v=h('div');
+ if(room.phase==='end')v.append(h('div',{class:'c'},h('b',{},'🏚️ Bunkerga kirganlar'),alive().map(i=>h('div',{class:'surv'},pl[i].a+' '+pl[i].n))));
+ v.append(info(),playersV());return v;
+}
+function hud(){
+ const ph=room.phase,l=left();
+ return h('div',{class:'hud'},h('button',{class:'g sm',onclick:bye},ph==='end'?'← Bosh sahifa':'← Chiqish'),
+  h('div',{class:'hc'},h('b',{},'● '+room.round+'-RAUND'),h('span',{},(PH[ph]||'').toUpperCase())),
+  h('span',{id:'ht',class:'tmr'+(l>0&&l<=10?' low':'')},room.phaseEnd?mmss(l):'–'));
 }
 function roomV(){
  const m=mp(),ph=room.phase,v=h('div');
- if(err)v.append(h('div',{class:'c',style:'color:var(--rd)'},err));
+ if(ph==='lobby'){if(err)v.append(errBox());v.append(...lobbyV(),h('button',{class:'g blk',onclick:bye},'Chiqish'));return ent(v)}
+ v.append(hud());
+ if(err)v.append(errBox());
  if(elim)v.append(elimV());
- if(m&&m.p&&!m.al&&ph!=='lobby'&&ph!=='end'&&!elim)v.append(h('button',{style:'margin-bottom:10px',onclick:()=>{view='arcade';em('arc:enter');render()}},'🎮 Bunker Arcade'));
- v.append(ph==='lobby'?lobby():info());
+ if(m&&m.p&&!m.al&&ph!=='end'&&!elim)v.append(h('button',{class:'blk',style:'margin-bottom:12px',onclick:()=>{view='arcade';em('arc:enter');render()}},'🎮 Bunker Arcade'));
  if(ph==='tie')v.append(h('div',{class:'c'},'⚖️ Ovozlar teng: '+room.cand.map(i=>pl[i].a+' '+pl[i].n).join(', ')+'. Ular yana bittadan karta ochadi, keyin qayta ovoz beriladi.'));
  if(ph==='result')v.append(h('div',{class:'c'},h('b',{},'Bunkerdan chiqarildi: '+(room.out.length?room.out.map(i=>pl[i].a+' '+pl[i].n).join(', '):'hech kim'))));
- if(ph==='end')v.append(h('div',{class:'c'},h('b',{},'🏚️ Bunkerga kirganlar'),alive().map(i=>h('div',{},pl[i].a+' '+pl[i].n))));
- v.append(players());
- if(hand&&m&&m.al&&ph!=='end'&&ph!=='lobby')v.append(handV());
- v.append(h('button',{class:'g',onclick:bye},ph==='end'?'Bosh sahifa':'Chiqish'));
+ const vd=ph==='vote'&&m&&m.al&&m.vt==null;
+ v.append(seg('gt',[['cards','🔴 Kartalarim',canRev()],['table','👥 Stol',vd],['chat','💬 Chat',ch.length>seenCh]],gt,k=>{gt=k;fx=1;render()}),ent(gt==='cards'?cardsV():gt==='table'?tableV():h('div')));
  return v;
 }
 function render(){
- $('#scr').replaceChildren(pend?adultV():!room?homeV():view==='arcade'?arcV():roomV());
- $('#chat').hidden=!room;renderChat();
+ const ig=!!room&&room.phase!=='lobby'&&view!=='arcade';
+ if(!room||room.phase==='lobby'){fl.clear();for(const k in fa)delete fa[k];flInit=0;pgPrev=0;lastPh=''}
+ else{
+  if(!flInit){flInit=1;const m=mp();m&&Object.keys(m.cards||{}).forEach(k=>fl.add(k));seenCh=ch.length}
+  if(room.phase!==lastPh){if(room.phase==='end'&&lastPh)gt='table';lastPh=room.phase}
+ }
+ if(ig&&gt==='chat')seenCh=ch.length;
+ const sk=!room?'h':view==='arcade'?'a':room.phase==='lobby'?'l':'g';
+ if(sk!==lastSk){lastSk=sk;fx=1}
+ FX=fx;fx=0;
+ const base=!room?homeV():view==='arcade'?ent(arcV()):roomV();
+ $('#scr').replaceChildren(...(pend?[base,adultM()]:[base]));
+ if(pend){const f=$('.md input');f&&f.focus()}
+ const cb=$('#chat'),was=cb.hidden;
+ cb.hidden=!room||(ig&&gt!=='chat');
+ document.body.classList.toggle('ig',ig);
+ renderChat();
+ if(was&&!cb.hidden){const b=$('#msgs');b.scrollTop=b.scrollHeight}
 }
 function renderChat(){
  if(!room)return;
@@ -212,11 +289,18 @@ function renderChat(){
  $('#tabs').replaceChildren(...[h('button',{class:tab==='main'?'':'g',onclick:()=>{tab='main';renderChat()}},'💬 Umumiy'),g&&h('button',{class:tab==='ghost'?'':'g',onclick:()=>{tab='ghost';renderChat()}},'👻 Arvohlar')].filter(Boolean));
  const box=$('#msgs'),atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-40;
  const ck2=tab+':'+ch.length+':'+(ch.length?ch[ch.length-1].t:0);
- if(ck2!==ck){ck=ck2;box.replaceChildren(...ch.filter(x=>x.c===tab).map(x=>h('div',{style:'margin:2px 0'},h('span',{class:'mu'},x.a+' '+x.n+' · '+new Date(x.t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+': '),x.vid?(x.gone?h('span',{class:'mu'},'🎤 ovozli xabar o‘chirilgan'):vcache[x.vid]||(vcache[x.vid]=h('audio',{controls:true,preload:'metadata',src:'/v/'+x.vid,style:'height:36px;max-width:100%;vertical-align:middle'}))):x.x)));if(atEnd)box.scrollTop=box.scrollHeight}
+ if(ck2!==ck){ck=ck2;const L=ch.filter(x=>x.c===tab);
+  box.replaceChildren(...(L.length?L.map(x=>h('div',{class:'msg'+(m&&x.n===m.n&&x.a===m.a?' me':'')+(x.c==='ghost'?' gh':'')},
+   h('div',{class:'mh'},h('span',{},x.a),h('b',{},x.n),h('span',{class:'mtm'},new Date(x.t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))),
+   h('div',{class:'mb'},x.vid?(x.gone?h('span',{class:'mu'},'🎤 ovozli xabar o‘chirilgan'):vcache[x.vid]||(vcache[x.vid]=h('audio',{controls:true,preload:'metadata',src:'/v/'+x.vid,style:'height:36px;max-width:100%;vertical-align:middle'}))):x.x))):[h('div',{class:'empty'},h('i',{},'💬'),'Hozircha xabar yo‘q')]));
+  if(atEnd)box.scrollTop=box.scrollHeight}
  const w=tab==='ghost'?g:(room.phase==='lobby'||room.phase==='end'||(m&&m.al));
  $('#ci').disabled=!w;$('#cs').disabled=!w;const cm=$('#cm');if(cm)cm.disabled=!w;
 }
 function send(){const i=$('#ci'),x=i.value.trim();if(!x||!room)return;i.value='';em('chat',{c:tab,x})}
 $('#cs').onclick=send;$('#ci').onkeydown=e=>{if(e.key==='Enter')send()};
+const setTh=t=>{document.documentElement.dataset.theme=t;ST.set('bk_theme',t);const mt=document.querySelector('meta[name=theme-color]');if(mt)mt.content=t==='light'?'#F3F4F6':'#0E1015'};
+setTh(document.documentElement.dataset.theme==='light'?'light':'dark');
+$('#th').onclick=()=>{const d=document.documentElement;d.classList.add('tt');setTh(d.dataset.theme==='light'?'dark':'light');setTimeout(()=>d.classList.remove('tt'),350)};
+addEventListener('keydown',e=>{if(e.key==='Escape'&&pend){pend=null;render()}});
 render();
-
