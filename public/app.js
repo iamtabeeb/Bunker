@@ -63,7 +63,7 @@ function lobby(){
    m&&m.p&&h('button',{class:m.rd?'g':'',style:'margin-right:8px',onclick:()=>em('ready',!m.rd)},m.rd?'Tayyor emasman':'Tayyorman'),
    isHost()?h('button',{onclick:start},'O‘yinni boshlash'):h('span',{class:'mu'},'Xona egasi boshlashini kuting...')));
 }
-socket.on('arc:game',g=>{ag=g;if(g){note='';err=''}render()});
+socket.on('arc:game',g=>{ag=g;sync48();if(g){note='';err=''}render()});
 function chkElim(){const m=mp();if(!room||room.phase==='lobby'){elimSeen=false;return}if(m&&m.p&&!m.al&&room.phase!=='end'&&!elimSeen){elimSeen=true;elim=1}}
 const elimV=()=>h('div',{class:'c'},h('b',{},'Siz o‘yindan chiqdingiz!'),h('div',{style:'margin:6px 0'},'Mini-o‘yinlarga o‘tasizmi?'),h('button',{onclick:()=>{elim=0;view='arcade';em('arc:enter');render()}},'Mini-o‘yinlarga o‘tish'),' ',h('button',{class:'g',onclick:()=>{elim=0;render()}},'Xonada qolish'));
 socket.on('arc:inv',v=>{inv=v;render()});
@@ -71,7 +71,7 @@ socket.on('arc:invr',v=>{note=v.st==='declined'?v.n+' taklifni rad etdi':v.st===
 const loadP=()=>socket.emit('arc:list',null,r=>{plist=(r&&r.list)||[];render()});
 setInterval(()=>{if(view==='arcade'&&pv&&!ag)loadP()},4000);
 const sendInv=(to,type)=>socket.emit('arc:invite',{to,type,bo},r=>{if(r&&r.err)fail(r.err);else{err='';note='Taklif yuborildi, javob kutilmoqda...';render()}});
-const GN={ttt:'X va O',rps:'Tosh-Qaychi-Qog‘oz'};
+const GN={ttt:'X va O',rps:'Tosh-Qaychi-Qog‘oz','2048':'2048'};
 const gcard=(type,title,desc)=>h('div',{class:'c'},h('b',{},title),h('div',{class:'mu',style:'margin:4px 0 8px'},desc),
  type==='rps'&&h('div',{class:'row',style:'margin-bottom:8px'},h('span',{class:'mu'},'Raundlar:'),[3,5].map(n=>h('button',{class:bo===n?'':'g',onclick:()=>{bo=n;render()}},String(n)))),
  h('div',{class:'mu'},'Bot bilan:'),
@@ -86,7 +86,7 @@ function arcV(){
   inv&&h('div',{class:'c'},h('b',{},inv.from+' sizni '+GN[inv.type]+' o‘ynashga taklif qilmoqda'),h('div',{style:'margin-top:8px'},h('button',{onclick:()=>{socket.emit('arc:reply',{id:inv.id,ok:true});inv=null;render()}},'Qabul qilish'),' ',h('button',{class:'g',onclick:()=>{socket.emit('arc:reply',{id:inv.id,ok:false});inv=null;render()}},'Rad etish'))),
   note&&h('div',{class:'c',onclick:()=>{note='';render()}},note),
   err&&h('div',{class:'c',style:'color:var(--rd)'},err),
-  ag?gameV():[gcard('ttt','❌⭕ X va O','3×3 maydon. Bir qatorga uchta belgi qo‘ysangiz yutasiz.'),gcard('rps','🪨✂️📄 Tosh-Qaychi-Qog‘oz','Tosh qaychini, qaychi qog‘ozni, qog‘oz toshni yutadi.')]);
+  ag?gameV():[gcard('ttt','❌⭕ X va O','3×3 maydon. Bir qatorga uchta belgi qo‘ysangiz yutasiz.'),gcard('rps','🪨✂️📄 Tosh-Qaychi-Qog‘oz','Tosh qaychini, qaychi qog‘ozni, qog‘oz toshni yutadi.'),gcard('2048','🔢 2048','Plitkalarni suring, bir xil sonlarni qo‘shing. 3 daqiqa ichida ko‘proq ball to‘plang.')]);
 }
 function rpsV(){
  const g=ag,N={r:'🪨 Tosh',s:'✂️ Qaychi',p:'📄 Qog‘oz'},l=g.last;
@@ -98,7 +98,25 @@ function rpsV(){
   !g.over&&h('div',{class:'row'},['r','s','p'].map(c=>h('button',{class:'g',disabled:g.picked,onclick:()=>em('arc:pick',{c})},N[c]))),
   h('div',{style:'margin-top:10px'},g.over&&g.level!=='-'&&h('button',{onclick:()=>{em('arc:quit');em('arc:bot',{type:'rps',level:g.level,bo:g.bo})}},'Qayta o‘ynash'),' ',h('button',{class:'g',onclick:()=>em('arc:quit')},'Chiqish')));
 }
-function gameV(){if(ag.type==='rps')return rpsV();
+const G=window.G2048;let ge=null,gid48=null;
+function sync48(){if(ag&&ag.type==='2048'){if(gid48!==ag.id){gid48=ag.id;ge=G.init(ag.seed);for(const c of ag.mv)G.move(ge,c)}}else{ge=null;gid48=null}}
+function mv48(d){if(!ge||!ag||ag.over||ge.over||Date.now()+skew>=ag.end)return;if(G.move(ge,d)){socket.emit('arc:mv',{d});render()}}
+addEventListener('keydown',e=>{const d={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'u',ArrowDown:'d'}[e.key];if(d&&ag&&ag.type==='2048'&&view==='arcade'){e.preventDefault();mv48(d)}});
+setInterval(()=>{const x=$('#t48');if(x&&ag&&ag.type==='2048'&&!ag.over)x.textContent=Math.max(0,Math.ceil((ag.end-Date.now()-skew)/1000))+' s'},500);
+function g48V(){
+ const g=ag;
+ const st=g.over?(g.over==='d'?'Durang!':g.over==='you'?'Siz yutdingiz! 🎉':g.vs+' yutdi'):(ge.over?'Yurishlar tugadi, vaqt tugashini kuting':'Barmoq bilan suring (yoki klaviatura strelkalari)');
+ const board=h('div',{style:'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:300px;touch-action:none;user-select:none'},ge.b.map(v=>h('div',{style:`height:64px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${v>=1024?18:v>=128?22:26}px;background:${v?`hsl(${200-Math.log2(v)*14},45%,${62-Math.log2(v)*2.5}%)`:'var(--bg)'};color:#111;border:1px solid var(--bd)`},v||'')));
+ let sx=0,sy=0;
+ board.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+ board.addEventListener('touchend',e=>{const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;mv48(Math.abs(dx)>Math.abs(dy)?(dx>0?'r':'l'):(dy>0?'d':'u'))});
+ return h('div',{class:'c'},h('b',{},'2048 · '+g.vs+(g.level==='-'?'':' ('+g.level+')')),
+  h('div',{class:'mu',style:'margin:4px 0'},'Vaqt: ',h('span',{id:'t48'},Math.max(0,Math.ceil((g.end-Date.now()-skew)/1000))+' s')),
+  h('div',{style:'margin:4px 0'},`Ballingiz: ${ge.s} · ${g.oppBot?'Bot balli (maqsad)':g.vs+' balli'}: ${g.opp}`),
+  h('div',{style:'margin:6px 0'},st),board,
+  h('div',{style:'margin-top:10px'},g.over&&g.level!=='-'&&h('button',{onclick:()=>{em('arc:quit');em('arc:bot',{type:'2048',level:g.level})}},'Qayta o‘ynash'),' ',h('button',{class:'g',onclick:()=>em('arc:quit')},'Chiqish')));
+}
+function gameV(){if(ag.type==='rps')return rpsV();if(ag.type==='2048')return g48V();
  const g=ag,mine=g.turn===g.you&&!g.over;
  const st=g.over?(g.over==='d'?'Durang!':g.over===g.you?'Siz yutdingiz! 🎉':g.vs+' yutdi'):(mine?'Sizning yurishingiz ('+g.you+')':g.vs+' o‘ylayapti...');
  return h('div',{class:'c'},h('b',{},'X va O · '+g.vs+(g.level==='-'?'':' ('+g.level+')')),h('div',{style:'margin:6px 0'},st),
@@ -160,5 +178,3 @@ function renderChat(){
 function send(){const i=$('#ci'),x=i.value.trim();if(!x||!room)return;i.value='';em('chat',{c:tab,x})}
 $('#cs').onclick=send;$('#ci').onkeydown=e=>{if(e.key==='Enter')send()};
 render();
-
-
