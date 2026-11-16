@@ -3,7 +3,7 @@ const app=express();app.use(express.static(__dirname+'/public'));
 const srv=http.createServer(app),io=new Server(srv),rooms={};
 const now=()=>Date.now(),shuf=a=>[...a].sort(()=>Math.random()-.5);
 const al=r=>Object.keys(r.pl).filter(i=>r.pl[i].al),nc=p=>Object.keys(p.cards).length;
-const can=(r,id)=>{const p=r.pl[id];return !!p&&p.al&&p.p&&(r.phase==='reveal'?nc(p)<r.round:r.phase==='tie'&&r.cand.includes(id)&&p.tx!==r.round&&nc(p)<6)};
+const can=(r,id)=>{const p=r.pl[id];return !!p&&p.al&&p.p&&(r.phase==='reveal'?nc(p)<r.round:r.phase==='tie'&&r.cand.includes(id)&&p.tx!==r.round&&nc(p)<C.CATS.length)};
 const ghost=(r,id)=>r.phase!=='lobby'&&r.phase!=='end'&&!(r.pl[id]&&r.pl[id].al);
 
 const where={};
@@ -17,8 +17,8 @@ app.get('/v/:id',(q,res)=>{
  res.set({'Content-Type':'audio/wav','Accept-Ranges':'bytes','Content-Length':e-a+1,'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff'});
  res.end(b.subarray(a,e+1));
 });
-const open=m=>Object.values(rooms).filter(r=>r.pub&&r.phase==='lobby'&&Object.keys(r.pl).length<20&&(!m||r.mode===m));
-const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,mode:r.mode,pub:r.pub,auto:r.auto,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
+const open=()=>Object.values(rooms).filter(r=>r.pub&&r.phase==='lobby'&&Object.keys(r.pl).length<20);
+const view=(r,id)=>{const m=r.pl[id];return{code:r.code,host:r.host,pk:r.pk,pub:r.pub,auto:r.auto,hostName:(r.pl[r.host]||{}).n||'',ts:r.ts,phase:r.phase,round:r.round,plan:r.plan,sc:r.sc,bk:r.bk,out:r.out,cand:r.cand,need:r.need,end:r.end,srv:now(),can:can(r,id),
  hand:m&&m.p&&r.phase!=='lobby'?m.hand:null,
  players:Object.entries(r.pl).map(([i,p])=>({id:i,n:p.n,a:p.a,p:p.p,al:p.al,cards:p.cards,vt:p.vt,rd:p.rd,arc:p.arc})),
  chat:r.chat.filter(x=>x.c==='main'||ghost(r,id))}};
@@ -34,8 +34,8 @@ const start=r=>{
  const ids=Object.keys(r.pl).filter(i=>r.pl[i].p),N=ids.length,K=r.pk;
  if(N<3)return 'Kamida 3 o‘yinchi kerak';
  if(K<1||K>=N)return 'Bunker joylari o‘yinchilar sonidan kam bo‘lishi kerak';
- const E=N-K,Rn=Math.min(6,E),b=Math.floor(E/Rn),x=E%Rn,pools={};
- C.CATS.forEach(([c])=>pools[c]=shuf(C.P[c].filter(x=>r.mode==='adult'||!C.ADULT.includes(x))));
+ const E=N-K,Rn=Math.min(C.CATS.length,E),b=Math.floor(E/Rn),x=E%Rn,pools={};
+ C.CATS.forEach(([c])=>pools[c]=shuf(C.P[c]));
  ids.forEach((i,n)=>{const p=r.pl[i];p.cards={};p.vt=null;p.hand={};C.CATS.forEach(([c])=>p.hand[c]=pools[c][n%pools[c].length])});
  go(r,'reveal',r.ts[0],{plan:Array.from({length:Rn},(_,i)=>b+(i<x?1:0)),sc:C.pick(C.SC),bk:C.mkB(),round:1,out:[],cand:null,need:null,tb:0});
 };
@@ -72,18 +72,16 @@ io.on('connection',s=>{
  ARC.attach(s,E,()=>({r,id}));
  E('join',(d,cb)=>{
   const pid=String(d.pid||'').slice(0,12);if(!pid)return cb({err:'Xatolik'});
-  const old=where[pid],oq=old&&rooms[old]&&rooms[old].pl[pid]?rooms[old]:null,mode=d.mode==='adult'?'adult':'normal';
+  const old=where[pid],oq=old&&rooms[old]&&rooms[old].pl[pid]?rooms[old]:null;
   if(oq&&oq.phase!=='lobby'&&!d.re&&String(d.code||'').toUpperCase()!==oq.code)return cb({err:'Siz boshqa xonada o‘ynayapsiz. Avval undan chiqing.'});
   let q;
-  if(d.create||(d.quick&&!open(mode).length)){
-   if(mode==='adult'&&!d.adultOk)return cb({err:'18+ xona uchun yosh va rozilikni tasdiqlang'});
+  if(d.create||(d.quick&&!open().length)){
    if(Object.keys(rooms).length>2000)return cb({err:'Serverda joy qolmadi, birozdan keyin urinib ko‘ring'});
    let c;do c=Array.from({length:5},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[C.rnd(0,31)]).join('');while(rooms[c]);
-   q=rooms[c]={code:c,host:pid,mode,pub:!!d.quick,pkm:false,auto:0,pk:3,ts:[30,120,45],phase:'lobby',round:0,plan:null,sc:null,bk:null,out:[],cand:null,need:null,tb:0,end:0,pl:{},chat:[],t:now()};
+   q=rooms[c]={code:c,host:pid,pub:!!d.quick,pkm:false,auto:0,pk:3,ts:[30,120,45],phase:'lobby',round:0,plan:null,sc:null,bk:null,out:[],cand:null,need:null,tb:0,end:0,pl:{},chat:[],t:now()};
   }else{
-   q=d.quick?open(mode).sort((a,b)=>Object.keys(b.pl).length-Object.keys(a.pl).length)[0]:rooms[String(d.code||'').toUpperCase()];
+   q=d.quick?open().sort((a,b)=>Object.keys(b.pl).length-Object.keys(a.pl).length)[0]:rooms[String(d.code||'').toUpperCase()];
    if(!q)return cb({err:'Xona topilmadi'});
-   if(q.mode==='adult'&&!d.adultOk&&!(d.re&&q.pl[pid]))return cb({err:'Bu 18+ xona',adult:true});
   }
   if(oq&&oq!==q&&oq.phase==='lobby')drop(oq,pid);
   let p=q.pl[pid];
@@ -119,7 +117,7 @@ io.on('connection',s=>{
   if(!x||(d.c==='ghost'?!g:g))return;
   r.chat.push({c:g?'ghost':'main',n:p.n,a:p.a,x,t:now()});if(r.chat.length>100)r.chat.shift();push(r);
  });
- E('rooms',(d,cb)=>cb({list:open().map(r=>({code:r.code,mode:r.mode,host:(r.pl[r.host]||{}).n||'',n:Object.keys(r.pl).length}))}));
+ E('rooms',(d,cb)=>cb({list:open().map(r=>({code:r.code,host:(r.pl[r.host]||{}).n||'',n:Object.keys(r.pl).length}))}));
  E('voice',(d,cb)=>{
   if(!r||!r.pl[id])return;
   const p=r.pl[id],g=ghost(r,id),b=d.buf;
