@@ -158,7 +158,7 @@ function wav(ch,sr){
 function vrender(){
  const b=$('#vbox');if(!b)return;let c=null;
  if(rec)c=h('div',{class:'row'},h('span',{},'🔴 Yozilmoqda '+Math.min(20,Math.floor((Date.now()-rec.t0)/1000))+' / 20 s'),h('button',{onclick:recStop},'⏹ To‘xtatish'),h('button',{class:'g',onclick:vcancel},'Bekor qilish'));
- else if(vs)c=h('div',{},h('audio',{controls:true,src:vs.url,style:'width:100%'}),h('div',{class:'row',style:'margin-top:6px'},h('span',{class:'mu'},Math.round(vs.dur)+' s'),h('button',{class:vbusy?'ld':'',disabled:vbusy,onclick:vsend},vbusy?'Yuborilmoqda...':'📤 Yuborish'),h('button',{class:'g',onclick:vcancel},'Bekor qilish')));
+ else if(vs)c=h('div',{},h('audio',{controls:true,src:vs.url,style:'width:100%'}),h('div',{class:'row',style:'margin-top:6px'},h('span',{class:'mu'},Math.round(vs.dur)+' s'),h('button',{class:vbusy?'ld':'',disabled:!!vbusy,onclick:vsend},vbusy?'Yuborilmoqda...':'📤 Yuborish'),h('button',{class:'g',onclick:vcancel},'Bekor qilish')));
  if(verr)c=h('div',{},c,h('div',{style:'color:var(--rd);margin-top:4px'},verr));
  b.replaceChildren(...(c?[c]:[]));
 }
@@ -291,3 +291,4 @@ const setTh=t=>{document.documentElement.dataset.theme=t;ST.set('bk_theme',t);co
 setTh(document.documentElement.dataset.theme==='light'?'light':'dark');
 $('#th').onclick=()=>{const d=document.documentElement;d.classList.add('tt');setTh(d.dataset.theme==='light'?'dark':'light');setTimeout(()=>d.classList.remove('tt'),350)};
 render();
+
